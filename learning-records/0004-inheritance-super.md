@@ -1,0 +1,8 @@
+# Inheritance and super().__init__() — solid
+
+Built `SavingsAccount(BankAccount)` and `CheckingAccount(BankAccount)` v4 correctly: both use `super().__init__(owner, balance)` before adding subclass-specific attributes, both reuse the inherited `deposit`/`withdraw` untouched, `isinstance` checks came out exactly right (`SavingsAccount` is a `BankAccount`, is not a `CheckingAccount`). Completed the stretch goal (`CheckingAccount.bank_name` override, confirmed `SavingsAccount.bank_name` still falls through to the parent's value) unprompted — this is the third day in a row the stretch goal was done without being asked. Confirmed verbally, unprompted, what would break without `super().__init__()` (owner/balance/account_count never get set up).
+
+## Implications
+- Inheritance mechanics (`class Child(Parent)`, `super().__init__()`, is-a via `isinstance`, class attribute overriding in subclasses) are a solid floor. No need to re-teach.
+- Pattern worth naming explicitly going forward: stretch goals are consistently being completed without prompting (Days 2, 3, 4). Consider making stretch goals slightly harder, or promoting a "stretch" idea into the core requirement, since the current floor may be under-challenging this learner's actual pace.
+- Ready for Day 5: polymorphism / method overriding. The natural next step is the tension already previewed in [[0004-inheritance]]'s callout — CheckingAccount can't actually go negative for overdraft because the Day 3 balance setter forbids it. Overriding withdraw (or the validation rule) in a subclass is the concrete vehicle for teaching overriding.

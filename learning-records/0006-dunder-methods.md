@@ -1,0 +1,10 @@
+# Dunder methods (__str__, __repr__, __eq__, __lt__) — solid, plus an unprompted discovery
+
+Built `BankAccount` v6 correctly: `__str__`, `__repr__`, `__eq__`, `__lt__` all implemented with the `isinstance`/`NotImplemented` guard, inherited cleanly by both subclasses, and `account_count` correctly reflected an inline throwaway instance created for a comparison (didn't need this explained — read the count as intentional, not a bug). Confirmed verbally, unprompted, the real difference in audience between `__str__` (human-facing) and `__repr__` (developer-facing/debugging).
+
+Did not complete the stretch goal (`functools.total_ordering`) — first day this happened after 5/5 stretch completions. Not a concern: while testing, tried `accountB > accountA` with no `__gt__` defined anywhere, and it returned the correct answer. Investigated why: Python's rich-comparison protocol automatically falls back to the reflected operand (`a.__gt__(b)` returning `NotImplemented` triggers a Python-side try of `b.__lt__(a)`) even without `total_ordering`. This is a more subtle, less commonly known piece of the same topic than the stretch goal itself — the skipped stretch goal was effectively superseded by a better, self-directed discovery.
+
+## Implications
+- `__str__`/`__repr__`/`__eq__`/`__lt__`, the `NotImplemented` guard pattern, and now the reflected-comparison fallback are a solid floor. `functools.total_ordering` itself is still unconfirmed — worth a quick one-line mention next time comparisons come up, but not worth a dedicated re-teach.
+- Missing one stretch goal after 5 consecutive completions is not a pacing signal on its own, especially given what actually happened instead (self-directed exploration past the assigned scope). Don't over-read a single skipped stretch as a slowdown.
+- Ready for Day 7: composition (`Bank` class composed of many `Account`s, a `Customer` class) — deliberately kept to one clean new concept (composition vs. inheritance, "has-a" vs. "is-a") rather than another escalation, consistent with treating Day 6 as a pacing reset in [[0005-polymorphism-method-overriding]].

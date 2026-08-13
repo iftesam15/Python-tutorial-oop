@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 7 — Composition</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<p class="kicker">Python OOP · Day 7 of the project path</p>
+<h1>Composition: "Has-A," Not "Is-A"</h1>
+<p class="lede">A week of inheritance has been building a family of account types. Today introduces the other half of OOP design — and starts assembling everything so far into one system: a <code>Bank</code> that actually has customers and accounts.</p>
+
+<h2>The core idea</h2>
+<p>
+Every subclass so far has modeled an <strong>is-a</strong> relationship: a <code>SavingsAccount</code> <em>is a</em> <code>BankAccount</code>. But not every real-world relationship is "is-a." A customer isn't a kind of account — a customer <em>has</em> accounts. That's <strong>composition</strong>: one object holds references to other objects as attributes, instead of inheriting from them.
+</p>
+<p>
+This matters because reaching for inheritance when the real relationship is "has-a" produces nonsense: <code>class Bank(Customer)</code> would claim every bank <em>is</em> a customer, which is false and would inherit a pile of irrelevant behavior. The well-known design guideline — <a href="https://en.wikipedia.org/wiki/Composition_over_inheritance" target="_blank" rel="noopener">"favor composition over inheritance"</a> — comes up constantly in code review and interviews for exactly this reason: it's easy to reach for a subclass out of habit when a plain attribute would model reality more honestly.
+</p>
+
+<h2>Anatomy: Customer and Bank, composed of accounts</h2>
+<pre><code>class Customer:
+    def __init__(self, name, email):
+        self.name = name
+        self.email = email
+        self.accounts = []          # composition — a Customer HAS accounts
+
+    def open_account(self, account):
+        self.accounts.append(account)
+
+    def total_balance(self):
+        return sum(account.balance for account in self.accounts)
+
+
+class Bank:
+    def __init__(self, name):
+        self.name = name
+        self.customers = []         # composition — a Bank HAS customers
+
+    def add_customer(self, customer):
+        self.customers.append(customer)
+
+    def total_assets(self):
+        return sum(customer.total_balance() for customer in self.customers)
+
+
+bank = Bank("Python National Bank")
+
+dhrubo = Customer("Dhrubo", "dhrubo@example.com")
+dhrubo.open_account(BankAccount("Dhrubo", 1000))
+dhrubo.open_account(SavingsAccount("Dhrubo", 5000, interest_rate=0.03))
+bank.add_customer(dhrubo)
+
+print(dhrubo.total_balance())   # 6000.0 — Customer doesn't care which Account subclass
+print(bank.total_assets())      # 6000.0 — Bank doesn't care which Customer, either
+</code></pre>
+
+<p>
+Notice <code>total_balance</code> never checks what <em>kind</em> of account it's looking at — <code>account.balance</code> works identically whether it's a <code>BankAccount</code>, <code>SavingsAccount</code>, or <code>CheckingAccount</code>, because all three share that interface from Day 4's inheritance. Composition and inheritance aren't competitors here — <code>Customer</code> uses composition to hold accounts, and those accounts use inheritance to share behavior with each other. Real systems use both, chosen deliberately per relationship.
+</p>
+
+<div class="callout">
+  <div class="callout-title">The test to apply</div>
+  Before writing <code>class X(Y):</code>, ask: "is every X really a Y?" If the honest answer is "X has a Y" or "X uses a Y," that's composition — a plain attribute, not a subclass.
+</div>
+
+<h2>Quick check</h2>
+<p>Answer from memory before moving on.</p>
+<div data-quiz>
+
+  <div class="quiz-q" data-correct="b">
+    <p class="quiz-prompt">1. A <code>Customer</code> holding a list of <code>BankAccount</code> objects is an example of:</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">an is-a relationship</button>
+      <button class="quiz-opt" data-key="b">a has-a relationship</button>
+      <button class="quiz-opt" data-key="c">a class attribute</button>
+      <button class="quiz-opt" data-key="d">a static method</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — a Customer has accounts; it isn't itself a kind of account." data-wrong="Not quite. A Customer isn't a kind of BankAccount — it holds them, which is has-a (composition), not is-a (inheritance)."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">2. Why shouldn't <code>Bank</code> inherit from <code>Customer</code>?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">banks are not customers</button>
+      <button class="quiz-opt" data-key="b">banks need more methods</button>
+      <button class="quiz-opt" data-key="c">customers need bank methods</button>
+      <button class="quiz-opt" data-key="d">python forbids that relationship</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — inheritance should only model a real is-a relationship, and a bank simply isn't a kind of customer." data-wrong="Not quite. Python would happily allow the syntax — the problem is that it's factually false: a bank is not a kind of customer."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">3. What does composition let you avoid?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">forced is-a relationships</button>
+      <button class="quiz-opt" data-key="b">all class methods</button>
+      <button class="quiz-opt" data-key="c">instance attribute storage</button>
+      <button class="quiz-opt" data-key="d">python's inheritance syntax</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — it lets you model has-a/uses-a relationships honestly instead of forcing a subclass where one doesn't really fit." data-wrong="Not quite. The point is avoiding inheritance where it doesn't honestly apply — composition is the has-a alternative to a forced is-a."></p>
+  </div>
+
+</div>
+
+<h2>Primary source</h2>
+<p>
+<a href="https://realpython.com/inheritance-composition-python/" target="_blank" rel="noopener">Real Python — Inheritance and Composition: A Python OOP Guide</a> is written specifically to contrast these two, with worked examples of exactly this "when to use which" judgment call — read this one in full, it's the most directly relevant resource in the whole path so far.
+</p>
+
+<h2>Today's project</h2>
+<div class="project-brief">
+  <h3>New: Customer and Bank</h3>
+  <p>New classes, but they wrap everything built over the past six days rather than replacing any of it.</p>
+  <ul class="checklist">
+    <li><code>Customer</code> — <code>name</code>, <code>email</code>, an <code>accounts</code> list, <code>open_account(account)</code>, <code>total_balance()</code></li>
+    <li><code>Bank</code> — <code>name</code>, a <code>customers</code> list, <code>add_customer(customer)</code>, <code>total_assets()</code></li>
+    <li>Create one <code>Bank</code>, at least two <code>Customer</code>s, and give each customer at least two accounts of <strong>different</strong> subclasses (mix <code>BankAccount</code>/<code>SavingsAccount</code>/<code>CheckingAccount</code>)</li>
+    <li>Print each customer's <code>total_balance()</code> and the bank's <code>total_assets()</code>, and confirm the numbers actually add up correctly by hand for at least one customer</li>
+  </ul>
+  <p><strong>Stretch goal:</strong> add <code>Bank.find_customer(name)</code> that searches <code>customers</code> and returns the matching <code>Customer</code> (or <code>None</code> if nobody matches).</p>
+</div>
+
+<p class="ask-agent">
+  <strong>Stuck, or want your code reviewed?</strong> Paste your updated file here. When you can explain, in your own words, why <code>Customer</code> shouldn't inherit from <code>BankAccount</code> even though it "has" a list of them, tell me — that unlocks Day 8 (abstract base classes: enforcing that every account type implements a shared interface, using the <code>abc</code> module).
+</p>
+
+<footer class="lesson-nav">
+  <a href="0006-dunder-methods.html">&larr; Day 6: Dunder Methods</a>
+  <a href="0008-abstract-base-classes.html">Next: Abstract Base Classes &rarr;</a>
+</footer>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

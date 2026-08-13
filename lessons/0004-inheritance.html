@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 4 — Inheritance</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<p class="kicker">Python OOP · Day 4 of the project path</p>
+<h1>Inheritance: Reuse What Already Works</h1>
+<p class="lede">A real bank doesn't have one account type — it has savings accounts, checking accounts, each with their own extra rules, but all sharing the same core deposit/withdraw/balance behavior you already built and validated. Today you stop copy-pasting that behavior and start reusing it.</p>
+
+<h2>The core idea</h2>
+<p>
+A subclass — <code>class SavingsAccount(BankAccount):</code> — starts with everything the parent class (<code>BankAccount</code>) already has: every attribute, every method, including the validated <code>balance</code>/<code>owner</code> properties from yesterday. This is an <strong>is-a</strong> relationship: a <code>SavingsAccount</code> <em>is a</em> <code>BankAccount</code>, plus a bit extra. You only write the <em>extra</em> part.
+</p>
+<p>
+<code>super().__init__(...)</code> is how a subclass calls its parent's constructor instead of duplicating it. Skipping it and rewriting <code>self.owner = owner</code> etc. yourself would work today, but it means every future fix to <code>BankAccount.__init__</code> — a new validation rule, say — silently stops applying to your subclasses. <code>super()</code> keeps the reuse real, not just copied text that happens to look the same right now.
+</p>
+
+<h2>Anatomy: two subclasses</h2>
+<pre><code>class SavingsAccount(BankAccount):
+    def __init__(self, owner, balance=0, interest_rate=0.02):
+        super().__init__(owner, balance)   # reuse the parent's setup
+        self.interest_rate = interest_rate  # then add what's new
+
+    def add_interest(self):
+        interest = self.balance * self.interest_rate
+        self.deposit(interest)              # reuses the inherited deposit()
+        print(f"Added {interest:.2f} interest")
+
+
+class CheckingAccount(BankAccount):
+    def __init__(self, owner, balance=0, transaction_fee=1.5):
+        super().__init__(owner, balance)
+        self.transaction_fee = transaction_fee
+
+    def withdraw_with_fee(self, amount):
+        self.withdraw(amount + self.transaction_fee)  # reuses inherited withdraw()
+
+
+savings = SavingsAccount("Dhrubo", 1000, interest_rate=0.05)
+savings.add_interest()
+print(savings.balance)                      # 1050.0 — deposit() still validates as before
+
+checking = CheckingAccount("Jack", 500)
+checking.withdraw_with_fee(100)
+print(checking.balance)                     # 398.5
+
+print(isinstance(savings, BankAccount))     # True — is-a relationship
+print(isinstance(savings, CheckingAccount)) # False — siblings, not related to each other
+</code></pre>
+
+<p>
+Notice <code>deposit</code> and <code>withdraw</code> don't appear anywhere in either subclass — they're inherited untouched, balance validation included. That's the entire point: three days of work on <code>BankAccount</code> didn't get thrown away, it got reused.
+</p>
+
+<div class="callout">
+  <div class="callout-title">A preview, not today's job</div>
+  You might notice <code>CheckingAccount</code> can't actually go negative even with a "transaction fee" concept, because the <code>balance</code> setter from Day 3 still forbids it. Making a subclass genuinely <em>change</em> a parent's behavior (like allowing controlled overdraft) is <strong>method overriding</strong> — that's tomorrow's topic, polymorphism. Today is only about adding new behavior, not changing existing behavior.
+</div>
+
+<h2>Quick check</h2>
+<p>Answer from memory before moving on.</p>
+<div data-quiz>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">1. Why call <code>super().__init__()</code> instead of rewriting the parent's setup code?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">to avoid duplication</button>
+      <button class="quiz-opt" data-key="b">to skip validation</button>
+      <button class="quiz-opt" data-key="c">to delete attributes</button>
+      <button class="quiz-opt" data-key="d">to hide methods</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — it reuses the parent's real setup logic, so future fixes to BankAccount.__init__ keep applying to subclasses automatically." data-wrong="Not quite. The goal is reuse — duplicating the setup code would drift out of sync the moment BankAccount changes."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="b">
+    <p class="quiz-prompt">2. <code>SavingsAccount(BankAccount)</code> expresses which relationship?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">no real relationship</button>
+      <button class="quiz-opt" data-key="b">an is-a relationship</button>
+      <button class="quiz-opt" data-key="c">an has-a relationship</button>
+      <button class="quiz-opt" data-key="d">an unrelated data type</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — a SavingsAccount is a BankAccount, plus extras. (Has-a is a different relationship — composition — which shows up later in this path.)" data-wrong="Not quite. Inheritance models is-a: a SavingsAccount is a kind of BankAccount."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">3. Which methods does <code>SavingsAccount</code> get without rewriting them?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">deposit and withdraw methods</button>
+      <button class="quiz-opt" data-key="b">only the interest method</button>
+      <button class="quiz-opt" data-key="c">no methods at all</button>
+      <button class="quiz-opt" data-key="d">just the init method</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — every method BankAccount already has, deposit and withdraw included, comes along automatically." data-wrong="Not quite. Everything BankAccount defines — deposit, withdraw, the validated properties — is inherited, not just the new SavingsAccount-specific method."></p>
+  </div>
+
+</div>
+
+<h2>Primary source</h2>
+<p>
+<a href="https://realpython.com/python3-object-oriented-programming/#inherit-from-other-classes-in-python" target="_blank" rel="noopener">Real Python — Inherit From Other Classes in Python</a> covers this section directly, including <code>super()</code>. <a href="https://www.youtube.com/playlist?list=PL-osiE80TeTsqhIuOqKhwlXsIBIdSeYtc" target="_blank" rel="noopener">Corey Schafer's OOP playlist</a>, video 4, builds nearly this exact <code>super().__init__()</code> pattern.
+</p>
+
+<h2>Today's project</h2>
+<div class="project-brief">
+  <h3>Extend: BankAccount v4</h3>
+  <p>Same file. <code>BankAccount</code> itself shouldn't need to change today — you're building on top of it.</p>
+  <ul class="checklist">
+    <li><code>SavingsAccount(BankAccount)</code> with an <code>interest_rate</code> attribute (default your choice) set via its own <code>__init__</code>, calling <code>super().__init__(owner, balance)</code> first</li>
+    <li>An <code>add_interest(self)</code> method on <code>SavingsAccount</code> that deposits <code>balance * interest_rate</code></li>
+    <li><code>CheckingAccount(BankAccount)</code> with a <code>transaction_fee</code> attribute and a <code>withdraw_with_fee(self, amount)</code> method that withdraws <code>amount + transaction_fee</code> using the inherited <code>withdraw</code></li>
+    <li>Create one of each subclass and prove <code>deposit</code>/<code>withdraw</code>/property validation all still work, unmodified</li>
+    <li>Use <code>isinstance()</code> to confirm a <code>SavingsAccount</code> is a <code>BankAccount</code>, but is <strong>not</strong> a <code>CheckingAccount</code></li>
+  </ul>
+  <p><strong>Stretch goal:</strong> give <code>CheckingAccount</code> its own <code>bank_name</code> class attribute (overriding the parent's), and show <code>BankAccount.bank_name</code>, <code>SavingsAccount.bank_name</code>, and <code>CheckingAccount.bank_name</code> aren't all forced to match.</p>
+</div>
+
+<p class="ask-agent">
+  <strong>Stuck, or want your code reviewed?</strong> Paste your updated file here. When you can explain what would break if you forgot <code>super().__init__()</code> in a subclass, tell me — that unlocks Day 5 (polymorphism: making subclasses actually override behavior, not just add to it).
+</p>
+
+<footer class="lesson-nav">
+  <a href="0003-encapsulation-properties.html">&larr; Day 3: Encapsulation &amp; Properties</a>
+  <a href="0005-polymorphism.html">Next: Polymorphism &amp; Method Overriding &rarr;</a>
+</footer>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

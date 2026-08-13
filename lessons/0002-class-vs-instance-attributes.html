@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 2 — Class vs. Instance Attributes</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<p class="kicker">Python OOP · Day 2 of the project path</p>
+<h1>Class vs. Instance Attributes, and Two New Decorators</h1>
+<p class="lede">Yesterday every account kept its own private data. Today: data that's shared by <em>every</em> account, and two ways to write methods that aren't about one specific instance at all.</p>
+
+<h2>The core idea</h2>
+<p>
+An <strong>instance attribute</strong> (what you built yesterday — <code>self.owner</code>, <code>self.balance</code>) belongs to one object. A <strong>class attribute</strong> is defined directly in the class body, not inside <code>__init__</code>, and is shared by every instance unless a particular instance overrides it. Think of it as data that describes the <em>category</em>, not any one member of it — every <code>BankAccount</code> is issued by the same bank, so "bank name" belongs on the class, not on each account.
+</p>
+
+<div class="callout">
+  <div class="callout-title">The classic gotcha</div>
+  <code>self.account_count += 1</code> inside a method does <strong>not</strong> update the shared class attribute — it silently creates a brand-new <em>instance</em> attribute that shadows it. To actually mutate shared state, write <code>BankAccount.account_count += 1</code> (or <code>type(self).account_count += 1</code>), referring to the class explicitly. This trips up almost everyone the first time.
+</div>
+
+<h2>Anatomy: class attributes and two new decorators</h2>
+<pre><code>class BankAccount:
+    bank_name = "Python National Bank"   # class attribute — shared by all
+    account_count = 0                    # class attribute — shared by all
+
+    def __init__(self, owner, balance=0):
+        self.owner = owner               # instance attribute — per object
+        self.balance = balance
+        BankAccount.account_count += 1   # mutate the SHARED value
+
+    def deposit(self, amount):
+        self.balance += amount
+
+    def withdraw(self, amount):
+        if amount > self.balance:
+            print("Amount exceeds your balance")
+            return
+        self.balance -= amount
+
+    @classmethod
+    def from_string(cls, data_string):
+        """Alternate constructor: build an account from "owner,balance"."""
+        owner, balance = data_string.split(",")
+        return cls(owner, float(balance))
+
+    @staticmethod
+    def is_valid_amount(amount):
+        """Doesn't need self or cls — just a related utility check."""
+        return amount > 0
+
+
+account_a = BankAccount("Dhrubo", 1000)
+account_c = BankAccount.from_string("Jack,2000")
+
+print(BankAccount.account_count)   # 2 — shared, not per-instance
+print(account_a.bank_name)         # "Python National Bank" — same on every account
+</code></pre>
+
+<p>Two new decorators, two different jobs:</p>
+<ul>
+  <li><code>@classmethod</code> receives <code>cls</code> (the class) instead of <code>self</code> (an instance). The most common use is an <strong>alternate constructor</strong> — a second way to build an object, here from a raw string instead of separate arguments.</li>
+  <li><code>@staticmethod</code> receives neither <code>self</code> nor <code>cls</code>. It's just a regular function that happens to live inside the class because it's conceptually related — here, checking whether an amount is even valid before you try to deposit or withdraw it.</li>
+</ul>
+
+<h2>Quick check</h2>
+<p>Answer from memory before moving on.</p>
+<div data-quiz>
+
+  <div class="quiz-q" data-correct="b">
+    <p class="quiz-prompt">1. A class attribute's value is shared across:</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">no other instances</button>
+      <button class="quiz-opt" data-key="b">all class instances</button>
+      <button class="quiz-opt" data-key="c">one instance only</button>
+      <button class="quiz-opt" data-key="d">the deposit method</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — it's defined once on the class, so every instance sees the same value unless one overrides it." data-wrong="Not quite. A class attribute lives on the class itself, so every instance shares that one value."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">2. Which decorator receives <code>cls</code> instead of <code>self</code>?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">@classmethod</button>
+      <button class="quiz-opt" data-key="b">@staticmethod</button>
+      <button class="quiz-opt" data-key="c">@property</button>
+      <button class="quiz-opt" data-key="d">@abstractmethod</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — @classmethod is passed the class itself, which is why it's the standard tool for alternate constructors." data-wrong="Not quite. @staticmethod takes neither self nor cls; @classmethod is the one that receives the class."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">3. Why write an alternate constructor with <code>@classmethod</code>?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">to create objects differently</button>
+      <button class="quiz-opt" data-key="b">to store class data</button>
+      <button class="quiz-opt" data-key="c">to compare two objects</button>
+      <button class="quiz-opt" data-key="d">to remove class methods</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — from_string is a second way to build a BankAccount, from a different input shape than __init__ expects." data-wrong="Not quite. The whole point of from_string here is offering another way to build the object, not managing data or comparisons."></p>
+  </div>
+
+</div>
+
+<h2>Primary source</h2>
+<p>
+<a href="https://realpython.com/python-classes/#class-and-instance-attributes" target="_blank" rel="noopener">Real Python — Class and Instance Attributes</a> covers this distinction directly. For the two decorators specifically, <a href="https://www.youtube.com/playlist?list=PL-osiE80TeTsqhIuOqKhwlXsIBIdSeYtc" target="_blank" rel="noopener">Corey Schafer's OOP playlist</a>, videos 2 and 3, walks through nearly this exact example.
+</p>
+
+<h2>Today's project</h2>
+<div class="project-brief">
+  <h3>Extend: BankAccount v2</h3>
+  <p>Keep working in the same file as yesterday. You're adding shared state and two new kinds of methods — nothing from v1 should need to change.</p>
+  <ul class="checklist">
+    <li>Add a class attribute <code>bank_name</code> shared by every account</li>
+    <li>Add a class attribute <code>account_count</code> that increments correctly every time a new account is created (watch the gotcha above)</li>
+    <li>Add <code>from_string(cls, data_string)</code> as a <code>@classmethod</code> that builds an account from a string like <code>"Jack,2000"</code></li>
+    <li>Add <code>is_valid_amount(amount)</code> as a <code>@staticmethod</code>, and use it inside <code>deposit</code>/<code>withdraw</code> to reject non-positive amounts</li>
+    <li>Create a few accounts (including at least one via <code>from_string</code>) and print <code>BankAccount.account_count</code> to prove it's shared, not per-instance</li>
+  </ul>
+  <p><strong>Stretch goal:</strong> add a class attribute <code>total_deposited</code> that tracks the sum of every deposit ever made, across all accounts.</p>
+</div>
+
+<p class="ask-agent">
+  <strong>Stuck, or want your code reviewed?</strong> Paste your updated <code>BankAccount</code> here and I'll go through it with you. When you can explain why <code>self.account_count += 1</code> is a trap, tell me — that's what unlocks Day 3 (encapsulation: making sure balance can never go invalid in the first place).
+</p>
+
+<footer class="lesson-nav">
+  <a href="0001-classes-and-objects.html">&larr; Day 1: Classes &amp; Objects</a>
+  <a href="0003-encapsulation-properties.html">Next: Encapsulation &amp; Properties &rarr;</a>
+</footer>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

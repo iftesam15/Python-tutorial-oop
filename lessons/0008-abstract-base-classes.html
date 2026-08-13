@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 8 — Abstract Base Classes</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<p class="kicker">Python OOP · Day 8 of the project path</p>
+<h1>Abstract Base Classes: Enforcing a Contract</h1>
+<p class="lede">Right now, nothing stops a future subclass of <code>BankAccount</code> from forgetting to override <code>withdraw</code> — it would just silently inherit the parent's version, maybe wrongly. Today you make that a loud, immediate error instead of a quiet bug.</p>
+
+<h2>The core idea</h2>
+<p>
+Every override so far has been a <strong>convention</strong> — <code>CheckingAccount.withdraw</code> exists because you remembered to write it, not because Python required it. An <strong>abstract base class</strong> (ABC) turns that convention into a rule Python itself enforces: mark a method <code>@abstractmethod</code> in a class that inherits from <code>ABC</code>, and Python refuses to instantiate <em>any</em> subclass that hasn't provided its own version — raising <code>TypeError</code> at the moment of creation, not three months later when that code path finally runs.
+</p>
+<p>
+This is the same idea as an interface in Java/TypeScript, but Python's version is deliberately minimal: no separate keyword, just <a href="https://docs.python.org/3/library/abc.html" target="_blank" rel="noopener"><code>abc.ABC</code></a> as a base class and <code>@abstractmethod</code> as a decorator.
+</p>
+
+<h2>Anatomy: a required method</h2>
+<pre><code>from abc import ABC, abstractmethod
+
+class Account(ABC):
+    def __init__(self, owner, balance=0):
+        self.owner = owner
+        self.balance = balance
+
+    @abstractmethod
+    def account_type(self):
+        ...          # no implementation — subclasses MUST supply one
+
+class SavingsAccount(Account):
+    def account_type(self):
+        return "Savings"
+
+Account("Dhrubo", 100)          # TypeError: Can't instantiate abstract class
+                                 # Account with abstract method account_type
+SavingsAccount("Dhrubo", 100)   # fine — the contract is satisfied
+</code></pre>
+<p>
+Compare this to a normal (non-abstract) method with a <code>pass</code> body: that version would let <code>Account("Dhrubo", 100)</code> succeed silently, and any subclass that forgot to override it would too — the bug only shows up later, when <code>account_type()</code> returns nonsense. <code>@abstractmethod</code> moves the failure to the earliest possible moment: object creation.
+</p>
+
+<div class="callout">
+  <div class="callout-title">The test to apply</div>
+  When a method exists purely so subclasses override it, ask: do I want Python to <em>enforce</em> that override, or just document the convention? If a missing override should be impossible, not just unlikely, that's <code>@abstractmethod</code>.
+</div>
+
+<h2>Quick check</h2>
+<p>Answer from memory before moving on.</p>
+<div data-quiz>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">1. What happens if you instantiate a class that inherits from <code>ABC</code> but hasn't implemented all its <code>@abstractmethod</code>s?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">it raises a TypeError immediately</button>
+      <button class="quiz-opt" data-key="b">it raises an AttributeError later</button>
+      <button class="quiz-opt" data-key="c">it silently returns None instead</button>
+      <button class="quiz-opt" data-key="d">it works but skips those methods</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — Python refuses to construct the object at all, at the moment of instantiation." data-wrong="Not quite. Python refuses to construct the object at all — you get a TypeError right at instantiation, before any method is even called."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">2. Why mark <code>account_type</code> abstract instead of leaving it a normal method subclasses might override?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">so python enforces every subclass overrides it</button>
+      <button class="quiz-opt" data-key="b">so the method executes slightly faster</button>
+      <button class="quiz-opt" data-key="c">so subclasses inherit its return value</button>
+      <button class="quiz-opt" data-key="d">so the base class hides the method name</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — a plain method is a suggestion; @abstractmethod is Python enforcing that no subclass can skip it." data-wrong="Not quite. Performance and visibility aren't affected — the point is that Python now enforces the override instead of merely permitting it."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="b">
+    <p class="quiz-prompt">3. Once <code>account_type</code> is abstract on <code>BankAccount</code>, why do you still need a new <code>StandardAccount</code> subclass?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">StandardAccount runs faster than BankAccount</button>
+      <button class="quiz-opt" data-key="b">BankAccount itself can no longer be instantiated</button>
+      <button class="quiz-opt" data-key="c">abstractmethod requires at least three subclasses</button>
+      <button class="quiz-opt" data-key="d">account_type only compiles inside subclasses</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — BankAccount now has an unimplemented abstract method, so it can't be constructed directly; something concrete has to supply account_type()." data-wrong="Not quite. The real reason: BankAccount itself now has an unfulfilled abstract method, so Python won't let you construct one directly — a concrete subclass has to fill it in."></p>
+  </div>
+
+</div>
+
+<h2>Primary source</h2>
+<p>
+<a href="https://docs.python.org/3/library/abc.html" target="_blank" rel="noopener">Python docs — <code>abc</code>: Abstract Base Classes</a> is short and precise on exactly this mechanism — read the top section on <code>ABCMeta</code>/<code>ABC</code> and <code>abstractmethod</code>, the rest of the page (registration, custom ABCs) is more than you need today.
+</p>
+
+<h2>Today's project</h2>
+<div class="project-brief">
+  <h3>Retrofit: make BankAccount enforce its interface</h3>
+  <p>You're changing an existing hierarchy, not adding a fresh one — the old <code>BankAccount("Dhrubo", 1000)</code> calls in your file will need updating.</p>
+  <ul class="checklist">
+    <li>Import <code>ABC</code>, <code>abstractmethod</code> from <code>abc</code>, and make <code>BankAccount</code> inherit from <code>ABC</code></li>
+    <li>Add <code>@abstractmethod def account_type(self): ...</code> to <code>BankAccount</code></li>
+    <li>Implement <code>account_type()</code> in <code>SavingsAccount</code> (return <code>"Savings"</code>) and <code>CheckingAccount</code> (return <code>"Checking"</code>)</li>
+    <li>Add a new concrete <code>StandardAccount(BankAccount)</code> with <code>account_type()</code> returning <code>"Standard"</code>, and swap every place that used to call <code>BankAccount(...)</code> directly (Dhrubo's and Iftesam's plain accounts) to <code>StandardAccount(...)</code> instead</li>
+    <li>Prove the enforcement: temporarily try <code>BankAccount("test", 100)</code> on its own line, confirm Python raises <code>TypeError</code> naming <code>account_type</code>, then delete that line</li>
+  </ul>
+  <p><strong>Stretch goal:</strong> fold <code>account_type()</code> into <code>__str__</code> from Day 6, so <code>print(account)</code> reads something like <code>"Dhrubo's Standard account: $1000.00"</code>.</p>
+</div>
+
+<p class="ask-agent">
+  <strong>Stuck, or want your code reviewed?</strong> Paste your updated file here. When you can explain, in your own words, the difference between a regular method with a <code>pass</code> body and one marked <code>@abstractmethod</code> — same-looking code, very different guarantee — tell me, and we'll pick Day 9.
+</p>
+
+<footer class="lesson-nav">
+  <a href="0007-composition.html">&larr; Day 7: Composition</a>
+  <span>Next: Operator Overloading → unlocked once the ABC retrofit is done</span>
+</footer>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

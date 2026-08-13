@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 6 — Dunder Methods</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<p class="kicker">Python OOP · Day 6 of the project path</p>
+<h1>Dunder Methods: Hooking Into Python's Own Syntax</h1>
+<p class="lede">Right now, <code>print(account)</code> gives you an ugly <code>&lt;__main__.BankAccount object at 0x7f...&gt;</code>, and <code>account_a == account_b</code> is always <code>False</code> unless they're the literal same object in memory. Today you fix both — and it applies to every subclass for free.</p>
+
+<h2>The core idea</h2>
+<p>
+"Dunder" = <strong>d</strong>ouble <strong>under</strong>score. Methods like <code>__init__</code> (which you already know) are Python's way of letting your class plug into built-in syntax: <code>print()</code>, <code>==</code>, <code>&lt;</code>, and more all quietly call a dunder method on your object behind the scenes. Define the right one, and ordinary Python syntax starts working correctly on your objects.
+</p>
+<table>
+<tr><th>Syntax</th><th>Dunder called</th><th>Purpose</th></tr>
+<tr><td><code>print(obj)</code>, <code>str(obj)</code></td><td><code>__str__</code></td><td>Human-readable description</td></tr>
+<tr><td><code>repr(obj)</code>, REPL display</td><td><code>__repr__</code></td><td>Unambiguous, developer-facing description</td></tr>
+<tr><td><code>a == b</code></td><td><code>__eq__</code></td><td>What counts as "equal"</td></tr>
+<tr><td><code>a &lt; b</code>, <code>sorted(list)</code></td><td><code>__lt__</code></td><td>What counts as "less than"</td></tr>
+</table>
+
+<h2>Anatomy: four dunder methods</h2>
+<pre><code>class BankAccount:
+    ...
+
+    def __str__(self):
+        return f"{self.owner}'s account: ${self.balance:.2f}"
+
+    def __repr__(self):
+        return f"BankAccount(owner={self.owner!r}, balance={self.balance!r})"
+
+    def __eq__(self, other):
+        if not isinstance(other, BankAccount):
+            return NotImplemented
+        return self.owner == other.owner and self.balance == other.balance
+
+    def __lt__(self, other):
+        if not isinstance(other, BankAccount):
+            return NotImplemented
+        return self.balance &lt; other.balance
+
+
+a = BankAccount("Dhrubo", 1000)
+b = BankAccount("Jack", 2000)
+
+print(a)                          # Dhrubo's account: $1000.00 — via __str__
+print([a, b])                     # uses __repr__ for each item inside a list
+print(a == BankAccount("Dhrubo", 1000))   # True — via __eq__, not identity
+print(sorted([a, b], key=None))   # sorted by balance — via __lt__
+</code></pre>
+
+<p>Because these live on <code>BankAccount</code>, <code>SavingsAccount</code> and <code>CheckingAccount</code> inherit all four automatically — same reuse principle as Day 4, just applied to Python's own syntax instead of your own methods.</p>
+
+<div class="callout">
+  <div class="callout-title"><code>__str__</code> vs. <code>__repr__</code> — pick both, for different readers</div>
+  <code>__str__</code> is for end users: friendly, readable. <code>__repr__</code> is for you, debugging: precise enough that, ideally, <code>eval(repr(obj))</code> could rebuild the object. If you only define one, define <code>__repr__</code> — Python falls back to it for <code>print()</code> too if <code>__str__</code> is missing, but not the other way around.
+</div>
+
+<div class="callout">
+  <div class="callout-title">Why <code>NotImplemented</code>, not just comparing blindly</div>
+  <code>isinstance(other, BankAccount)</code> guards against comparing a <code>BankAccount</code> to something unrelated, like a string or an int. Returning the special value <code>NotImplemented</code> (not the same as raising an error, and not the same as <code>None</code>) tells Python "I don't know how to compare these — try the other object's method, or fall back to default behavior" instead of crashing or silently returning a wrong answer.
+</div>
+
+<h2>Quick check</h2>
+<p>Answer from memory before moving on.</p>
+<div data-quiz>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">1. <code>print(account)</code> calls which dunder method?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">__str__</button>
+      <button class="quiz-opt" data-key="b">__repr__</button>
+      <button class="quiz-opt" data-key="c">__eq__</button>
+      <button class="quiz-opt" data-key="d">__init__</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — print() reaches for __str__ first, falling back to __repr__ only if __str__ isn't defined." data-wrong="Not quite. print() looks for __str__ specifically; __repr__ is the fallback, not the first choice."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">2. Which dunder method lets <code>sorted()</code> work on your objects?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">__lt__</button>
+      <button class="quiz-opt" data-key="b">__str__</button>
+      <button class="quiz-opt" data-key="c">__init__</button>
+      <button class="quiz-opt" data-key="d">__del__</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — sorted() and list.sort() compare items with <, which calls __lt__." data-wrong="Not quite. Sorting works by repeatedly comparing with <, which is __lt__ — the other options don't affect ordering at all."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">3. Why check <code>isinstance</code> and return <code>NotImplemented</code> instead of comparing attributes blindly?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">to fail comparisons safely</button>
+      <button class="quiz-opt" data-key="b">to always return True</button>
+      <button class="quiz-opt" data-key="c">to skip the comparison</button>
+      <button class="quiz-opt" data-key="d">to compare different types</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — it stops account == 'not an account' from crashing with an AttributeError or quietly returning a nonsense result." data-wrong="Not quite. The goal is a clean, correct answer when comparing against something unrelated, not skipping or forcing a result."></p>
+  </div>
+
+</div>
+
+<h2>Primary source</h2>
+<p>
+<a href="https://realpython.com/python-repr-vs-str/" target="_blank" rel="noopener">Real Python — Python's repr() vs str()</a> for the first two. <a href="https://realpython.com/python-numbers/" target="_blank" rel="noopener">Real Python — the Python Docs section on rich comparison methods</a> also covers <code>__eq__</code>/<code>__lt__</code>, or go straight to <a href="https://www.youtube.com/playlist?list=PL-osiE80TeTsqhIuOqKhwlXsIBIdSeYtc" target="_blank" rel="noopener">Corey Schafer's OOP playlist</a>, video 5, which builds this exact set of four methods on a similar example class.
+</p>
+
+<h2>Today's project</h2>
+<div class="project-brief">
+  <h3>Extend: BankAccount v6</h3>
+  <p>These four methods go on <code>BankAccount</code> only — no changes needed in the subclasses, they inherit automatically.</p>
+  <ul class="checklist">
+    <li><code>__str__</code> — a friendly one-line description including owner and balance</li>
+    <li><code>__repr__</code> — a precise, code-like description (e.g. <code>BankAccount(owner='Dhrubo', balance=1000)</code>)</li>
+    <li><code>__eq__</code> — two accounts are equal if owner and balance match (guard with <code>isinstance</code> + <code>NotImplemented</code>)</li>
+    <li><code>__lt__</code> — one account is "less than" another based on balance</li>
+    <li>Prove all four: <code>print()</code> an account, <code>print()</code> a list of accounts (exercises <code>__repr__</code>), compare two equal-looking accounts with <code>==</code>, and <code>sorted()</code> a list of mixed account types by balance</li>
+  </ul>
+  <p><strong>Stretch goal:</strong> use <code>functools.total_ordering</code> — decorate the class with it, and with only <code>__eq__</code> and <code>__lt__</code> defined, you get <code>&lt;=</code>, <code>&gt;</code>, and <code>&gt;=</code> for free. Prove one of them works.</p>
+</div>
+
+<p class="ask-agent">
+  <strong>Stuck, or want your code reviewed?</strong> Paste your updated file here. When you can explain the difference in purpose between <code>__str__</code> and <code>__repr__</code>, tell me — that unlocks Day 7 (composition: a <code>Bank</code> class that <em>has</em> many <code>Account</code>s and a <code>Customer</code> class, rather than more inheritance).
+</p>
+
+<footer class="lesson-nav">
+  <a href="0005-polymorphism.html">&larr; Day 5: Polymorphism &amp; Method Overriding</a>
+  <a href="0007-composition.html">Next: Composition &rarr;</a>
+</footer>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

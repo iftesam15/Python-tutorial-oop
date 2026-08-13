@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 3 — Encapsulation &amp; Properties</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<p class="kicker">Python OOP · Day 3 of the project path</p>
+<h1>Encapsulation: Closing the Back Door</h1>
+<p class="lede">Your <code>is_valid_amount</code> check only protects callers who go through <code>deposit</code>/<code>withdraw</code>. Nothing stops <code>account.balance = -9999</code> from bypassing it entirely. Today you close that hole.</p>
+
+<h2>The core idea</h2>
+<p>
+Python has no true "private" keyword — encapsulation here is mostly <strong>convention plus a tool</strong>. The convention: a leading underscore, <code>_balance</code>, tells other programmers "this is internal, don't touch it directly" — Python won't stop them, but it's a strong signal. <a href="https://docs.python.org/3/tutorial/classes.html#private-variables" target="_blank" rel="noopener">The official docs</a> confirm this is deliberate — Python trusts you.
+</p>
+<p>
+The tool is <strong><code>@property</code></strong>. It lets a method be accessed like a plain attribute (<code>account.balance</code>, no parentheses), and its partner <code>@balance.setter</code> lets <em>assignment</em> (<code>account.balance = 500</code>) run through your own validation code instead of just overwriting memory. This is the Pythonic version of a getter/setter pair — and it means every path to changing the balance, direct or through a method, is forced through the same gate.
+</p>
+
+<h2>Anatomy: a validated property</h2>
+<pre><code>class BankAccount:
+    bank_name = "Python National Bank"
+    account_count = 0
+
+    def __init__(self, owner, balance=0):
+        self.owner = owner
+        self._balance = 0        # internal storage — leading underscore
+        self.balance = balance   # goes through the setter below, validated
+        BankAccount.account_count += 1
+
+    @property
+    def balance(self):
+        return self._balance
+
+    @balance.setter
+    def balance(self, value):
+        if value &lt; 0:
+            raise ValueError("Balance cannot be negative")
+        self._balance = value
+
+    def deposit(self, amount):
+        self.balance = self.balance + amount   # runs through the setter
+
+    def withdraw(self, amount):
+        if amount &gt; self.balance:
+            print("Amount exceeds your balance")
+            return
+        self.balance = self.balance - amount   # runs through the setter
+
+
+account = BankAccount("Dhrubo", 1000)
+account.deposit(500)          # fine — 1500, validated automatically
+account.balance = -9999       # raises ValueError — the back door is shut
+</code></pre>
+
+<p>Notice what <em>didn't</em> change: <code>deposit</code> and <code>withdraw</code> still write to <code>self.balance</code> exactly like before. Because <code>balance</code> is now a property, that assignment is silently routed through <code>balance.setter</code> — every existing caller gets the validation for free, and nobody can bypass it by writing straight to the attribute.</p>
+
+<div class="callout">
+  <div class="callout-title">Why the double name</div>
+  The property is called <code>balance</code>; the real storage is <code>_balance</code>. If the setter were also named <code>balance</code> and tried to do <code>self.balance = value</code> inside itself, it would call the setter again — infinite recursion. The underscore name is what actually holds the data.
+</div>
+
+<h2>Quick check</h2>
+<p>Answer from memory before moving on.</p>
+<div data-quiz>
+
+  <div class="quiz-q" data-correct="b">
+    <p class="quiz-prompt">1. In Python, a leading underscore like <code>_balance</code> signals:</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">a private secret</button>
+      <button class="quiz-opt" data-key="b">an internal convention</button>
+      <button class="quiz-opt" data-key="c">a public method</button>
+      <button class="quiz-opt" data-key="d">a class attribute</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — Python doesn't enforce privacy; the underscore is a signal to other programmers, not a lock." data-wrong="Not quite. Python has no true private access — the underscore is a convention, easy to bypass on purpose."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">2. What does <code>@property</code> let you do?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">call methods like attributes</button>
+      <button class="quiz-opt" data-key="b">delete classes at runtime</button>
+      <button class="quiz-opt" data-key="c">share data across modules</button>
+      <button class="quiz-opt" data-key="d">skip the init method</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — account.balance calls the getter method behind the scenes, no parentheses needed." data-wrong="Not quite. @property's job is letting a method be read (and written, via a setter) with plain attribute syntax."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">3. Why use a setter instead of validating inside deposit/withdraw only?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">so validation always happens</button>
+      <button class="quiz-opt" data-key="b">so methods can differ</button>
+      <button class="quiz-opt" data-key="c">so subclasses cannot inherit</button>
+      <button class="quiz-opt" data-key="d">so instances share memory</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — the setter is the single gate every write goes through, so direct assignment can't bypass it the way it could before." data-wrong="Not quite. The point is closing the direct-assignment loophole — every write, from anywhere, hits the same validation."></p>
+  </div>
+
+</div>
+
+<h2>Primary source</h2>
+<p>
+<a href="https://realpython.com/python-property/" target="_blank" rel="noopener">Real Python — Python's property(): Add Managed Attributes to Your Classes</a> is the deep dive — worth reading in full, it covers read-only properties and deleters too, which we're not using yet. For a faster pass, <a href="https://www.youtube.com/playlist?list=PL-osiE80TeTsqhIuOqKhwlXsIBIdSeYtc" target="_blank" rel="noopener">Corey Schafer's OOP playlist</a>, video 6, covers this exact getter/setter/deleter pattern.
+</p>
+
+<h2>Today's project</h2>
+<div class="project-brief">
+  <h3>Extend: BankAccount v3</h3>
+  <p>Same file, same class. You're closing a real hole in your own v2 code — try <code>account.balance = -9999</code> against your <em>current</em> code first and watch it succeed silently. That's the bug you're fixing today.</p>
+  <ul class="checklist">
+    <li>Rename the internal storage to <code>_balance</code></li>
+    <li>Add a <code>balance</code> property (getter) that returns <code>self._balance</code></li>
+    <li>Add a <code>balance</code> setter that raises <code>ValueError</code> if the value is negative</li>
+    <li>Confirm <code>deposit</code> and <code>withdraw</code> still work unchanged (they should — they write to <code>self.balance</code>, which now runs through the setter automatically)</li>
+    <li>Prove the fix: show that <code>account.balance = -9999</code> now raises <code>ValueError</code> instead of silently succeeding</li>
+  </ul>
+  <p><strong>Stretch goal:</strong> add the same treatment to <code>owner</code> — a property + setter that raises <code>ValueError</code> if someone tries to set it to an empty string.</p>
+</div>
+
+<p class="ask-agent">
+  <strong>Stuck, or want your code reviewed?</strong> Paste your updated <code>BankAccount</code> here. When you can explain why the setter has to write to <code>_balance</code> instead of <code>self.balance</code> inside itself, tell me — that unlocks Day 4 (inheritance: <code>SavingsAccount</code> and <code>CheckingAccount</code> subclasses).
+</p>
+
+<footer class="lesson-nav">
+  <a href="0002-class-vs-instance-attributes.html">&larr; Day 2: Class vs. Instance Attributes</a>
+  <a href="0004-inheritance.html">Next: Inheritance &rarr;</a>
+</footer>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

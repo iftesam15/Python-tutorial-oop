@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 5 — Polymorphism &amp; Method Overriding</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<p class="kicker">Python OOP · Day 5 of the project path</p>
+<h1>Polymorphism: Same Call, Different Behavior</h1>
+<p class="lede">Four days straight of nailing the stretch goal — so today folds it into the baseline. This is also where you finally resolve the overdraft tension flagged on Day 4.</p>
+
+<h2>The core idea</h2>
+<p>
+<strong>Method overriding</strong> is a subclass redefining a method it inherited, instead of just adding new ones (which is all you did on Day 4). <strong>Polymorphism</strong> is the payoff: you can call <code>account.withdraw(amount)</code> on a list of mixed account types — <code>BankAccount</code>, <code>SavingsAccount</code>, <code>CheckingAccount</code> — with <em>zero</em> <code>if</code>/<code>elif</code> type-checking, and each object runs its own correct version automatically. Python resolves which <code>withdraw</code> to run based on the object's actual class, at the moment you call it.
+</p>
+<p>
+There are two flavors of override, and you're doing both today:
+</p>
+<ul>
+  <li><strong>Replace</strong> — the subclass's version does something genuinely different from the parent's (no <code>super()</code> call). <code>CheckingAccount.withdraw</code> below is this: it can't reuse <code>BankAccount.withdraw</code>'s "reject if amount &gt; balance" rule, because checking accounts are explicitly allowed to go negative up to a limit.</li>
+  <li><strong>Extend</strong> — the subclass calls <code>super().method()</code> to reuse the parent's logic, then adds something on top. <code>SavingsAccount.deposit</code> below is this: it still needs the real, validated deposit logic — it just adds a milestone message after.</li>
+</ul>
+
+<h2>Resolving the overdraft tension</h2>
+<p>
+Day 3's <code>balance</code> setter hard-codes "can't go below 0." A checking account with overdraft needs a <em>different</em> floor. The fix: make the floor itself an attribute, <code>minimum_balance</code>, defaulting to <code>0</code> on <code>BankAccount</code> — and let <code>CheckingAccount</code> set its own, lower one per instance.
+</p>
+<pre><code>class BankAccount:
+    minimum_balance = 0   # NEW — the floor is now a lookup, not a hard-coded 0
+    ...
+
+    @balance.setter
+    def balance(self, value):
+        if value &lt; self.minimum_balance:   # reads whichever class actually owns self
+            raise ValueError(f"Balance cannot go below {self.minimum_balance}")
+        self._balance = value
+
+
+class CheckingAccount(BankAccount):
+    def __init__(self, owner, balance=0, transaction_fee=1.5, overdraft_limit=100):
+        super().__init__(owner, balance)
+        self.transaction_fee = transaction_fee
+        self.minimum_balance = -overdraft_limit   # instance-level override
+
+    def withdraw(self, amount):                    # REPLACE override — different rule entirely
+        total = amount + self.transaction_fee
+        if self.balance - total &lt; self.minimum_balance:
+            print("Amount exceeds balance and overdraft limit")
+            return
+        self.balance -= total
+
+
+class SavingsAccount(BankAccount):
+    ...
+    def deposit(self, amount):                      # EXTEND override — reuses, then adds
+        super().deposit(amount)
+        if self.balance &gt;= 10000:
+            print("You've reached the $10,000 savings milestone!")
+
+
+accounts = [BankAccount("A", 200), SavingsAccount("B", 200), CheckingAccount("C", 200)]
+for acc in accounts:
+    acc.withdraw(250)   # same call, three different outcomes — no type-checking anywhere
+</code></pre>
+
+<div class="callout">
+  <div class="callout-title">Why <code>self.minimum_balance</code>, not a hard-coded 0</div>
+  This is the quiet trick that makes it all work: the setter lives on <code>BankAccount</code> and never changes, but <code>self.minimum_balance</code> resolves differently depending on which actual object called it. For a <code>CheckingAccount</code> instance, that's <code>-overdraft_limit</code>; for everything else, it's the class default, <code>0</code>. One inherited method, polymorphic behavior, without overriding the setter itself.
+</div>
+
+<h2>Quick check</h2>
+<p>Answer from memory before moving on.</p>
+<div data-quiz>
+
+  <div class="quiz-q" data-correct="b">
+    <p class="quiz-prompt">1. Method overriding means a subclass:</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">deletes a method</button>
+      <button class="quiz-opt" data-key="b">redefines a method</button>
+      <button class="quiz-opt" data-key="c">renames a class</button>
+      <button class="quiz-opt" data-key="d">copies parent data</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — same method name, inherited, but the subclass supplies its own implementation." data-wrong="Not quite. Overriding keeps the method name from the parent but supplies a new implementation in the subclass."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="b">
+    <p class="quiz-prompt">2. Calling <code>super().deposit(amount)</code> inside an override means the subclass is:</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">replacing parent behavior</button>
+      <button class="quiz-opt" data-key="b">extending parent behavior</button>
+      <button class="quiz-opt" data-key="c">ignoring parent behavior</button>
+      <button class="quiz-opt" data-key="d">deleting parent behavior</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — it runs the real parent logic first, then adds something on top, like SavingsAccount's milestone message." data-wrong="Not quite. Calling super() means the parent's version still runs — the subclass is adding to it, not throwing it away."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="b">
+    <p class="quiz-prompt">3. Looping over mixed account types calling <code>acc.withdraw(x)</code>, with no type-checking, demonstrates:</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">type checking</button>
+      <button class="quiz-opt" data-key="b">polymorphic dispatch</button>
+      <button class="quiz-opt" data-key="c">static typing</button>
+      <button class="quiz-opt" data-key="d">manual dispatch</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — each object runs its own class's version of withdraw automatically, based on its actual type at runtime." data-wrong="Not quite. Nothing here checks type manually — Python resolves the right method for each object on its own, which is what polymorphic dispatch means."></p>
+  </div>
+
+</div>
+
+<h2>Primary source</h2>
+<p>
+<a href="https://realpython.com/python3-object-oriented-programming/#polymorphism-and-duck-typing" target="_blank" rel="noopener">Real Python — Object-Oriented Programming (OOP) in Python 3: Polymorphism</a> section covers overriding and duck typing directly. If a video helps more here, search Corey Schafer's channel for the inheritance follow-up — this specific overriding pattern isn't in the original 6-part playlist, so Real Python is the primary source for today.
+</p>
+
+<h2>Today's project</h2>
+<div class="project-brief">
+  <h3>Extend: BankAccount v5</h3>
+  <p>This one touches <code>BankAccount</code> itself (the <code>minimum_balance</code> change) as well as both subclasses. Today's "core" already includes what would've been a stretch goal on an earlier day.</p>
+  <ul class="checklist">
+    <li>Add <code>minimum_balance = 0</code> as a class attribute on <code>BankAccount</code>; update the <code>balance</code> setter to check against <code>self.minimum_balance</code> instead of a hard-coded <code>0</code></li>
+    <li>In <code>CheckingAccount.__init__</code>, set <code>self.minimum_balance = -overdraft_limit</code></li>
+    <li>Override <code>withdraw</code> in <code>CheckingAccount</code> (full replace — no <code>super()</code>) so it allows going negative down to <code>minimum_balance</code>, factoring in <code>transaction_fee</code>. Retire the old <code>withdraw_with_fee</code> helper — fold its logic into this override</li>
+    <li>Override <code>deposit</code> in <code>SavingsAccount</code> (extend, <em>with</em> <code>super().deposit(amount)</code>) to print a milestone message once balance crosses a threshold you choose</li>
+    <li>Build a list mixing all three account types, loop over it calling <code>.withdraw(...)</code> on each with the <em>same</em> call, and print what happens — no <code>if</code>/<code>elif</code> on type anywhere in the loop</li>
+  </ul>
+  <p><strong>Stretch goal:</strong> also loop the same list calling <code>.deposit(...)</code> on each, and show the milestone message only ever fires for the <code>SavingsAccount</code>.</p>
+</div>
+
+<p class="ask-agent">
+  <strong>Stuck, or want your code reviewed?</strong> Paste your updated file here. When you can explain the difference between an overriding method that calls <code>super()</code> and one that doesn't — and why <code>CheckingAccount.withdraw</code> has to be the kind that doesn't — tell me. That unlocks Day 6 (dunder methods: <code>__str__</code>, <code>__repr__</code>, <code>__eq__</code>, <code>__lt__</code>).
+</p>
+
+<footer class="lesson-nav">
+  <a href="0004-inheritance.html">&larr; Day 4: Inheritance</a>
+  <a href="0006-dunder-methods.html">Next: Dunder Methods &rarr;</a>
+</footer>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

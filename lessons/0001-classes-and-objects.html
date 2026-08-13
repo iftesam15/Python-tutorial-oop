@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 1 — Classes &amp; Objects</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<p class="kicker">Python OOP · Day 1 of the project path</p>
+<h1>Classes &amp; Objects: Your First Blueprint</h1>
+<p class="lede">Today you stop writing scripts and start designing things that hold their own data. This is the single idea everything else in this path builds on.</p>
+
+<h2>The core idea</h2>
+<p>
+Every script you've written so far probably passed data <em>into</em> functions and got a result back out. A <strong>class</strong> flips that: it bundles data and the functions that act on that data into one unit, called an <strong>object</strong>. The class is the blueprint; each object you create from it is an <strong>instance</strong> — its own copy of the data, sharing the same behavior.
+</p>
+<p>
+Concretely: a <code>BankAccount</code> class describes what every bank account looks like (it has an owner, a balance, a way to deposit and withdraw). Each actual account — yours, your friend's — is a separate instance with its own balance, built from that same blueprint.
+</p>
+
+<div class="callout">
+  <div class="callout-title">Why this matters for interviews</div>
+  This is the exact vocabulary interviewers use — "class," "instance," "attribute," "method." Getting the words precise now saves confusion later when the concepts get harder.
+</div>
+
+<h2>Anatomy of a class</h2>
+<pre><code>class BankAccount:
+    def __init__(self, owner, balance=0):
+        self.owner = owner
+        self.balance = balance
+
+    def deposit(self, amount):
+        self.balance += amount
+
+    def withdraw(self, amount):
+        self.balance -= amount
+
+
+alice_account = BankAccount("Alice", 100)
+bob_account = BankAccount("Bob")
+
+alice_account.deposit(50)
+print(alice_account.balance)   # 150
+print(bob_account.balance)     # 0 — separate instance, separate data
+</code></pre>
+
+<p>Four things to notice:</p>
+<ul>
+  <li><code>class BankAccount:</code> defines the blueprint. Nothing runs yet — no object exists.</li>
+  <li><code>__init__</code> is a special method Python calls automatically the moment you create an object (<code>BankAccount("Alice", 100)</code>). Its job is to set up the instance's starting data.</li>
+  <li><code>self</code> is how a method refers to "this particular instance." <code>self.balance</code> inside <code>deposit</code> means "the balance belonging to whichever object called this method" — that's why <code>alice_account.balance</code> and <code>bob_account.balance</code> don't interfere with each other.</li>
+  <li>An <strong>attribute</strong> (<code>self.owner</code>, <code>self.balance</code>) is data stored on the object. A <strong>method</strong> (<code>deposit</code>, <code>withdraw</code>) is a function stored on the object, always taking <code>self</code> as its first parameter.</li>
+</ul>
+
+<h2>Quick check</h2>
+<p>Answer from memory before moving on — don't scroll back up.</p>
+<div data-quiz>
+
+  <div class="quiz-q" data-correct="b">
+    <p class="quiz-prompt">1. What best describes a Python class?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">a stored value</button>
+      <button class="quiz-opt" data-key="b">a reusable blueprint</button>
+      <button class="quiz-opt" data-key="c">a loop structure</button>
+      <button class="quiz-opt" data-key="d">a saved output</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — the class is the blueprint; objects are what get built from it." data-wrong="Not quite. A class doesn't hold one value or run code by itself — it's the blueprint objects get built from."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="b">
+    <p class="quiz-prompt">2. When is <code>__init__</code> automatically called?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">when class is defined</button>
+      <button class="quiz-opt" data-key="b">when object is created</button>
+      <button class="quiz-opt" data-key="c">when program ends normally</button>
+      <button class="quiz-opt" data-key="d">when method is deleted</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — __init__ runs the instant you call BankAccount(...), to set up that instance's starting data." data-wrong="Not quite. Defining the class runs nothing; __init__ fires at the moment an object is instantiated."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="b">
+    <p class="quiz-prompt">3. Inside a method, what does <code>self</code> refer to?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">the class itself</button>
+      <button class="quiz-opt" data-key="b">the specific instance</button>
+      <button class="quiz-opt" data-key="c">the module namespace</button>
+      <button class="quiz-opt" data-key="d">the parent function</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — self is the particular object the method was called on, which is why each instance keeps its own data." data-wrong="Not quite. self isn't the class — it's whichever individual instance called the method."></p>
+  </div>
+
+</div>
+
+<h2>Primary source</h2>
+<p>
+Read <a href="https://realpython.com/python-classes/" target="_blank" rel="noopener">Python Classes: The Power of Object-Oriented Programming (Real Python)</a> before or after this lesson — it covers the same ground in more depth with more examples. If you'd rather watch, <a href="https://www.youtube.com/playlist?list=PL-osiE80TeTsqhIuOqKhwlXsIBIdSeYtc" target="_blank" rel="noopener">Corey Schafer's OOP playlist</a>, video 1, covers the exact same material in ~15 minutes.
+</p>
+
+<h2>Today's project</h2>
+<div class="project-brief">
+  <h3>Build: BankAccount v1</h3>
+  <p>This is the first version of a system you'll keep extending on later days — inheritance, custom exceptions, design patterns will all attach to this same project. Get the fundamentals solid now.</p>
+  <p><strong>Requirements:</strong></p>
+  <ul class="checklist">
+    <li>A <code>BankAccount</code> class with <code>__init__(self, owner, balance=0)</code></li>
+    <li>A <code>deposit(self, amount)</code> method that increases the balance</li>
+    <li>A <code>withdraw(self, amount)</code> method that decreases the balance, but <strong>refuses</strong> (print a message, don't withdraw) if the amount exceeds the balance</li>
+    <li>Create at least two separate accounts and prove — by printing balances — that they don't share data</li>
+  </ul>
+  <p><strong>Stretch goal</strong> (only if the above feels easy): add a <code>transfer(self, other_account, amount)</code> method that withdraws from one account and deposits into another.</p>
+</div>
+
+<p class="ask-agent">
+  <strong>Stuck, or want your code reviewed?</strong> Ask me directly — paste your <code>BankAccount</code> code in chat and I'll walk through it with you. Once you've built it and can explain in your own words what <code>self</code> and <code>__init__</code> are doing, tell me — that's what unlocks tomorrow's lesson (class-level data, shared across every account) and lets me record it as a learning record.
+</p>
+
+<footer class="lesson-nav">
+  <span>Day 1 of the OOP project path</span>
+  <a href="0002-class-vs-instance-attributes.html">Next: Class vs. Instance Attributes &rarr;</a>
+</footer>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>
