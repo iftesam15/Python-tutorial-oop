@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 10 — Custom Exceptions</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<p class="kicker">Python OOP · Day 10 of the project path</p>
+<h1>Custom Exceptions: Domain-Specific Error Hierarchies</h1>
+<p class="lede">Until now, errors in our banking system either printed a message and returned <code>None</code>, or raised generic <code>ValueError</code>s. Today you replace silent failures with a structured hierarchy of custom exception classes that carry rich context.</p>
+
+<h2>The core idea</h2>
+<p>
+Real-world systems rarely rely solely on built-in exceptions like <code>ValueError</code> or <code>TypeError</code>. When an account withdrawal fails due to insufficient funds, the caller shouldn't have to parse a raw error message string or check if a method returned <code>None</code>.
+</p>
+<p>
+By subclassing Python's built-in <a href="https://docs.python.org/3/tutorial/errors.html#user-defined-exceptions" target="_blank" rel="noopener"><code>Exception</code></a>, you create domain-specific exceptions. Organizing them into an <strong>exception hierarchy</strong> allows callers to catch specific failures (e.g., <code>InsufficientFundsError</code>) or catch all banking domain errors at once (<code>BankingError</code>).
+</p>
+
+<h2>Anatomy: an exception hierarchy with domain payloads</h2>
+<pre><code>class BankingError(Exception):
+    """Base exception for all banking domain errors."""
+    pass
+
+
+class InsufficientFundsError(BankingError):
+    """Raised when an account does not have enough balance for a withdrawal."""
+    def __init__(self, amount, balance):
+        self.amount = amount
+        self.balance = balance
+        self.shortfall = amount - balance
+        super().__init__(
+            f"Cannot withdraw ${amount:.2f}: balance is ${balance:.2f} (short by ${self.shortfall:.2f})"
+        )
+
+
+class CurrencyMismatchError(BankingError):
+    """Raised when operating on two incompatible currencies."""
+    def __init__(self, currency1, currency2):
+        self.currency1 = currency1
+        self.currency2 = currency2
+        super().__init__(f"Cannot operate between {currency1} and {currency2}")
+</code></pre>
+
+<h2>Why exception hierarchies matter</h2>
+<p>
+Hierarchies give callers total control over error granularity. A caller can catch the specific error to handle it, or catch the base error as a catch-all for any domain failure:
+</p>
+
+<pre><code>try:
+    account.withdraw(Money(500, "USD"))
+except InsufficientFundsError as e:
+    # Caller can inspect structured attributes directly!
+    print(f"Transaction declined: you need ${e.shortfall:.2f} more.")
+except BankingError as e:
+    # Catches any other banking error (e.g. CurrencyMismatchError, InvalidAmountError)
+    print(f"Banking operation failed: {e}")
+</code></pre>
+
+<div class="callout">
+  <div class="callout-title">Always subclass Exception, never BaseException</div>
+  <code>BaseException</code> is reserved for system-exiting events like <code>KeyboardInterrupt</code> (Ctrl+C) and <code>SystemExit</code>. Inheriting from <code>Exception</code> ensures your custom errors are caught by standard <code>except Exception:</code> clauses without accidentally blocking program termination.
+</div>
+
+<div class="callout">
+  <div class="callout-title">Rich Payloads vs. Plain Strings</div>
+  Storing attributes like <code>self.shortfall</code> or <code>self.amount</code> inside the exception object means calling code (or a UI) can make programmatic decisions (like offering an overdraft transfer or showing a tailored notification) without brittle string parsing.
+</div>
+
+<h2>Quick check</h2>
+<p>Answer from memory before moving on.</p>
+<div data-quiz>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">1. Which base class should all custom domain exceptions inherit from?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">inherit directly from Exception</button>
+      <button class="quiz-opt" data-key="b">inherit from BaseException class</button>
+      <button class="quiz-opt" data-key="c">inherit from StandardError class</button>
+      <button class="quiz-opt" data-key="d">inherit from SystemExit base class</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — inheriting from Exception ensures standard error catching works while allowing Ctrl+C (KeyboardInterrupt) to exit cleanly." data-wrong="Not quite. BaseException is for system-level exits. All standard domain exceptions must inherit from Exception."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">2. What is the primary benefit of creating a shared <code>BankingError</code> base class?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">lets callers catch all domain errors</button>
+      <button class="quiz-opt" data-key="b">makes exception execution run much faster</button>
+      <button class="quiz-opt" data-key="c">prevents python from raising syntax errors</button>
+      <button class="quiz-opt" data-key="d">hides underlying error details from callers</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — callers can choose to catch specific errors (like InsufficientFundsError) or catch BankingError to handle any banking issue uniformly." data-wrong="Not quite. A shared base class allows calling code to catch all related domain exceptions with a single except clause."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">3. Why attach structured fields like <code>self.shortfall</code> to custom exceptions?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">provides structured data for programmatic recovery</button>
+      <button class="quiz-opt" data-key="b">speeds up formatted message string rendering</button>
+      <button class="quiz-opt" data-key="c">prevents callers from catching unexpected errors</button>
+      <button class="quiz-opt" data-key="d">converts exception messages to numeric values</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — structured fields allow calling code to inspect failure data programmatically without parsing strings." data-wrong="Not quite. Storing data attributes allows caller code to programmatically read values like shortfalls without regex or string parsing."></p>
+  </div>
+
+</div>
+
+<h2>Primary source</h2>
+<p>
+Read <a href="https://realpython.com/python-custom-exceptions/" target="_blank" rel="noopener">Real Python — Python Custom Exceptions: How to Define and Use Them</a> for a guide on writing clean exception hierarchies, or explore the <a href="https://docs.python.org/3/tutorial/errors.html#user-defined-exceptions" target="_blank" rel="noopener">Python Tutorial on User-defined Exceptions</a>.
+</p>
+
+<h2>Today's project</h2>
+<div class="project-brief">
+  <h3>Retrofit: Replace print statements and generic errors with Custom Exceptions</h3>
+  <p>Upgrade <code>projects/BankAccount.py</code> to use a structured exception hierarchy.</p>
+  <ul class="checklist">
+    <li>Define base class <code>BankingError(Exception)</code></li>
+    <li>Define <code>InsufficientFundsError(BankingError)</code>: store <code>amount</code>, <code>balance</code>, and <code>shortfall = amount - balance</code> in <code>__init__</code></li>
+    <li>Define <code>InvalidAmountError(BankingError)</code>: store <code>amount</code> in <code>__init__</code></li>
+    <li>Define <code>CurrencyMismatchError(BankingError)</code>: store <code>currency1</code> and <code>currency2</code></li>
+    <li>Update <code>Money.__add__</code>, <code>Money.__sub__</code>, and <code>Money.__lt__</code> to raise <code>CurrencyMismatchError</code> instead of generic <code>ValueError</code></li>
+    <li>Update <code>BankAccount.withdraw()</code> and <code>CheckingAccount.withdraw()</code> to raise <code>InsufficientFundsError</code> instead of printing error messages and returning early</li>
+    <li>Update <code>BankAccount.is_valid_amount()</code> (or <code>deposit()</code>) to raise <code>InvalidAmountError</code> instead of printing</li>
+    <li>Wrap sample transactions in a <code>try...except InsufficientFundsError as e:</code> block at the bottom of the file to demonstrate inspecting <code>e.shortfall</code></li>
+  </ul>
+  <p><strong>Stretch goal:</strong> Add an <code>AccountLockedError(BankingError)</code> or <code>OverdraftLimitExceededError(InsufficientFundsError)</code> with extra context attributes.</p>
+</div>
+
+<p class="ask-agent">
+  <strong>Stuck, or want your code reviewed?</strong> Run your updated <code>projects/BankAccount.py</code> with <code>try...except</code> blocks. When you can explain why custom exceptions with attributes are better than returning <code>False</code> or printing messages, tell me and we'll unlock Day 11 (SOLID: SRP &amp; OCP)!
+</p>
+
+<footer class="lesson-nav">
+  <a href="0009-operator-overloading.html">&larr; Day 9: Operator Overloading</a>
+  <a href="0011-solid-srp-ocp.html">Next: Day 11 — SOLID: SRP &amp; OCP &rarr;</a>
+</footer>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

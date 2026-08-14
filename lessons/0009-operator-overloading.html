@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 9 — Operator Overloading</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<p class="kicker">Python OOP · Day 9 of the project path</p>
+<h1>Operator Overloading: Custom Math &amp; Comparison Logic</h1>
+<p class="lede">Why write <code>wallet1.add(wallet2)</code> or risk adding raw numbers without currency checking when you can write <code>m1 + m2</code>? Today you build a dedicated <code>Money</code> value object that overloads arithmetic and comparison operators safely.</p>
+
+<h2>The core idea</h2>
+<p>
+<strong>Operator Overloading</strong> lets your custom classes hook into Python's built-in operators like <code>+</code>, <code>-</code>, <code>==</code>, and <code>&lt;</code>. When Python sees <code>a + b</code>, it automatically invokes <code>a.__add__(b)</code> under the hood.
+</p>
+<p>
+By defining these magic methods on value objects (like monetary amounts, vectors, or measurements), you make custom domain objects behave as naturally as built-in numbers while maintaining strict domain validation—such as refusing to add USD to EUR without conversion!
+</p>
+
+<table>
+<tr><th>Operator Syntax</th><th>Dunder Method</th><th>Purpose</th></tr>
+<tr><td><code>a + b</code></td><td><code>__add__(self, other)</code></td><td>Addition of two objects</td></tr>
+<tr><td><code>a - b</code></td><td><code>__sub__(self, other)</code></td><td>Subtraction of two objects</td></tr>
+<tr><td><code>a == b</code></td><td><code>__eq__(self, other)</code></td><td>Equality comparison</td></tr>
+<tr><td><code>a &lt; b</code></td><td><code>__lt__(self, other)</code></td><td>Less-than comparison</td></tr>
+</table>
+
+<h2>Anatomy: a Money value object</h2>
+<pre><code>class Money:
+    def __init__(self, amount, currency="USD"):
+        self.amount = float(amount)
+        self.currency = currency.upper()
+
+    def __repr__(self):
+        return f"Money({self.amount!r}, {self.currency!r})"
+
+    def __str__(self):
+        return f"${self.amount:.2f} {self.currency}"
+
+    def __add__(self, other):
+        if not isinstance(other, Money):
+            return NotImplemented
+        if self.currency != other.currency:
+            raise ValueError(f"Cannot add {self.currency} and {other.currency}")
+        return Money(self.amount + other.amount, self.currency)
+
+    def __sub__(self, other):
+        if not isinstance(other, Money):
+            return NotImplemented
+        if self.currency != other.currency:
+            raise ValueError(f"Cannot subtract {self.currency} and {other.currency}")
+        return Money(self.amount - other.amount, self.currency)
+
+    def __eq__(self, other):
+        if not isinstance(other, Money):
+            return NotImplemented
+        return self.amount == other.amount and self.currency == other.currency
+
+    def __lt__(self, other):
+        if not isinstance(other, Money):
+            return NotImplemented
+        if self.currency != other.currency:
+            raise ValueError(f"Cannot compare {self.currency} and {other.currency}")
+        return self.amount &lt; other.amount
+
+
+m1 = Money(100, "USD")
+m2 = Money(50, "USD")
+m3 = Money(50, "EUR")
+
+print(m1 + m2)        # $150.00 USD
+print(m1 &gt; m2)        # True
+# print(m1 + m3)      # Raises ValueError: Cannot add USD and EUR
+</code></pre>
+
+<div class="callout">
+  <div class="callout-title">Immutability of Value Objects</div>
+  Notice that <code>__add__</code> returns a <strong>new</strong> <code>Money</code> instance rather than modifying <code>self.amount</code> directly. Value objects like money, coordinates, or dates should generally be immutable—calculating a sum produces a new value without side effects.
+</div>
+
+<div class="callout">
+  <div class="callout-title">Guarding against invalid types</div>
+  Always check <code>isinstance(other, Money)</code> first. If <code>other</code> is not a <code>Money</code> object (e.g. <code>m1 + 50</code>), returning <code>NotImplemented</code> tells Python to attempt reverse addition (<code>50.__radd__(m1)</code>) or raise a clean <code>TypeError</code>.
+</div>
+
+<h2>Quick check</h2>
+<p>Answer from memory before moving on.</p>
+<div data-quiz>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">1. What method does Python call under the hood when evaluating <code>a + b</code>?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">a.__add__(b)</button>
+      <button class="quiz-opt" data-key="b">a.__plus__(b)</button>
+      <button class="quiz-opt" data-key="c">a.__sum__(b)</button>
+      <button class="quiz-opt" data-key="d">a.__calc__(b)</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — Python translates + to __add__(self, other) on the left operand." data-wrong="Not quite. Python's dunder method for + is named __add__ specifically."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">2. Why should <code>__add__</code> return a new <code>Money</code> instance instead of mutating <code>self</code>?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">to keep value objects immutable</button>
+      <button class="quiz-opt" data-key="b">to make memory usage smaller</button>
+      <button class="quiz-opt" data-key="c">to bypass python type checks</button>
+      <button class="quiz-opt" data-key="d">to execute math code faster</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — mathematical operations on value objects should produce new values rather than mutating existing instances." data-wrong="Not quite. Producing new objects keeps value objects immutable, avoiding unexpected side effects when instances are shared."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">3. What should happen if you attempt <code>m1 + m2</code> with USD and EUR without conversion?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">it raises a ValueError exception</button>
+      <button class="quiz-opt" data-key="b">it silently converts EUR to USD</button>
+      <button class="quiz-opt" data-key="c">it concatenates them as text</button>
+      <button class="quiz-opt" data-key="d">it returns None without warning</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — raising a ValueError prevents invalid operations across different domain currencies." data-wrong="Not quite. In strict domain logic without explicit conversion rates, attempting arithmetic across currencies should raise an explicit ValueError."></p>
+  </div>
+
+</div>
+
+<h2>Primary source</h2>
+<p>
+Check out <a href="https://realpython.com/operator-overloading-python/" target="_blank" rel="noopener">Real Python — Operator Overloading in Python</a> for a complete walkthrough of binary operators, rich comparisons, and in-place methods. You can also consult the official <a href="https://docs.python.org/3/reference/datamodel.html#special-method-names" target="_blank" rel="noopener">Python Data Model docs</a> on special method names.
+</p>
+
+<h2>Today's project</h2>
+<div class="project-brief">
+  <h3>Build: Money Value Object in <code>projects/Money.py</code></h3>
+  <p>Create a standalone domain module <code>projects/Money.py</code> that encapsulates currency operations safely.</p>
+  <ul class="checklist">
+    <li>Create class <code>Money</code> with attributes <code>amount</code> and <code>currency</code> (defaulting to <code>"USD"</code>)</li>
+    <li>Implement <code>__repr__</code> (e.g. <code>Money(100, 'USD')</code>) and <code>__str__</code> (e.g. <code>$100.00 USD</code>)</li>
+    <li>Implement <code>__add__</code> and <code>__sub__</code>: guard with <code>isinstance</code>, verify matching currencies (raise <code>ValueError</code> on mismatch), and return a <strong>new</strong> <code>Money</code> object</li>
+    <li>Implement <code>__eq__</code> and <code>__lt__</code>: ensure proper comparisons and currency matching</li>
+    <li>Demonstrate working operations: add two money amounts, subtract money, compare values, and verify that adding USD and EUR raises a <code>ValueError</code></li>
+  </ul>
+  <p><strong>Stretch goal:</strong> Integrate <code>Money</code> into <code>projects/BankAccount.py</code> so that account balances use <code>Money</code> instances for deposits and withdrawals instead of plain floats.</p>
+</div>
+
+<p class="ask-agent">
+  <strong>Stuck, or want your code reviewed?</strong> Create your <code>projects/Money.py</code> file and run it. When you can explain why <code>__add__</code> returns a new object instead of mutating <code>self</code>, tell me, and we'll unlock Day 10 (Custom Exceptions)!
+</p>
+
+<footer class="lesson-nav">
+  <a href="0008-abstract-base-classes.html">&larr; Day 8: Abstract Base Classes</a>
+  <a href="0010-custom-exceptions.html">Next: Day 10 — Custom Exceptions &rarr;</a>
+</footer>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

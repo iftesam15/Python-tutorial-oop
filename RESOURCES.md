@@ -16,6 +16,10 @@
   SOLID explained with before/after Python refactors, not abstract UML. Use for: the SOLID-focused lessons later in the path (job-interview relevant).
 - [abc — Abstract Base Classes — Python docs](https://docs.python.org/3/library/abc.html)
   Canonical, short reference for `ABC`/`abstractmethod` semantics. Use for: Day 8 material (enforcing a shared interface).
+- [Operator Overloading in Python: Customizing Your Classes — Real Python](https://realpython.com/operator-overloading-python/)
+  Detailed guide to implementing operator overloading (`__add__`, `__sub__`, `__eq__`, `__lt__`, etc.) for custom types. Use for: Day 9 material (building value objects like Money).
+- [Python Custom Exceptions: How to Define and Use Them — Real Python](https://realpython.com/python-custom-exceptions/)
+  Guide to creating clean user-defined exception hierarchies, passing domain payload context, and subclassing `Exception`. Use for: Day 10 material (custom banking exceptions).
 - [Design Patterns in Python — Refactoring.Guru](https://refactoring.guru/design-patterns/python)
   Conceptual + real-world Python code for all 22 classic GoF patterns. Use for: Factory/Strategy/Observer lessons in the later, harder projects.
 - [RefactoringGuru/design-patterns-python (GitHub)](https://github.com/RefactoringGuru/design-patterns-python)

@@ -1,12 +1,55 @@
 from abc import ABC,abstractmethod
 
+
+class Money:
+    def __init__(self,amount,currency="USD"):
+        self.amount = float(amount)
+        self.currency= currency.upper()
+
+    def __repr__(self):
+        return f"Money({self.amount!r},{self.currency!r})"
+
+    def __str__(self):
+        return f"{self.amount:.2f} {self.currency}"     
+
+    def __add__(self,other):
+        if not isinstance(other,Money):
+            return NotImplemented
+
+        if self.currency != other.currency:
+            raise ValueError(f"Cannot add {self.currency} and {other.currency} ")
+        return  Money(self.amount + other.amount,self.currency)
+
+    def __sub__(self,other):
+        if not isinstance(other,Money):
+            raise ValueError(f"Cannot subtract {self.currency} from {other.currency} ")
+
+        if self.currency != other.currency:
+            raise ValueError(f"Cannot subtract {self.currency} from {other.currency} ")    
+        return  Money(self.amount - other.amount,self.currency)
+
+    def __eq__(self, other):
+        if not isinstance(other, Money):
+            return NotImplemented
+        return self.amount == other.amount and self.currency == other.currency
+
+    def __lt__(self, other):
+        if not isinstance(other, Money):
+            return NotImplemented
+        if self.currency != other.currency:
+            raise ValueError(f"Cannot compare {self.currency} and {other.currency}")
+        return self.amount < other.amount        
+
+
+
+
 class BankAccount(ABC):
     minimum_balance = 0
     bank_name = "Python National Bank"
     account_count=0
     total_deposited = 0
 
-    def __init__(self,owner,balance=0):
+    def __init__(self,owner,balance: Money ):
         self.owner = owner
         self.balance = balance
         BankAccount.account_count +=1
@@ -30,23 +73,23 @@ class BankAccount(ABC):
             raise ValueError("Owner name cannot be empty")
         self._owner = name
 
-    def deposit(self,amount):
-        if(self.is_valid_amount(amount)):
-         self.balance += amount
-         BankAccount.total_deposited +=amount
-         print( f"Deposited {amount} to your account")             
+    def deposit(self,money:Money):
+        if(self.is_valid_amount(money.amount)):
+            self.balance += money.amount
+            BankAccount.total_deposited +=money.amount
+            print( f"Deposited {money.amount} to your account")             
 
-    def withdraw(self,amount):
-        if amount > self.balance:
+    def withdraw(self,money:Money):
+        if  money.amount > self.balance:
             print('Amount Exceeds your balance')
             return 
         
-        if(self.is_valid_amount(amount)):
-            self.balance -=amount
+        if(self.is_valid_amount(money.amount)):
+            self.balance -=money.amount
 
     @abstractmethod
     def account_type(self):
-            return 'Savings'        
+        return 'Savings'        
           
         
     
@@ -56,7 +99,7 @@ class BankAccount(ABC):
         return cls(owner,float(balance))
 
     @staticmethod
-    def is_valid_amount(amount):
+    def is_valid_amount(amount:float):
         if(amount > 0):
             return True
         else:
@@ -65,7 +108,7 @@ class BankAccount(ABC):
 
     """Four dunder methods Example"""
     def __str__(self):
-        return f"{self.owner}'s account: ${self.balance:.2f}"
+        return f"{self.owner}'s {self.account_type()} account: ${self.balance:.2f}"
 
     def __repr__(self):
         return f"BankAccount(owner={self.owner!r}, balance={self.balance!r})"   
@@ -101,7 +144,7 @@ class SavingsAccount(BankAccount):
         print(f"Added {interest:.2f} interest")    
 
     def account_type(self):
-        return 'Savings'   
+       return 'Savings'
 
 """
  Checking account class 
@@ -115,14 +158,16 @@ class CheckingAccount(BankAccount):
         self.transaction_fee= transaction_fee
         self.minimum_balance = -overdraft_value
 
-    def withdraw(self, amount):                    # REPLACE override — different rule entirely
-        total = amount + self.transaction_fee
+    def withdraw(self, money:Money):                    # REPLACE override — different rule entirely
+        total = money.amount + self.transaction_fee
      
         if self.balance - total < self.minimum_balance:
             print("Amount exceeds balance and overdraft limit")
             return
         self.balance -= total
-          
+
+    def account_type(self):
+       return 'Checking'     
 
 
 class Customer:
@@ -154,21 +199,18 @@ class Bank:
         return None         
 
 
-bank = Bank("Python National Bank")
 
 
-dhrubo = Customer("Dhrubo", "dhrubo@example.com")
-dhrubo.open_account(BankAccount("Dhrubo", 1000))
-dhrubo.open_account(SavingsAccount("Dhrubo", 5000, interest_rate=0.03))
+account = CheckingAccount("Iftesam", 5000, overdraft_value=300)
+account.deposit(Money(100, "USD"))
+account.withdraw(Money(50, "USD"))
+print(account)
 
-iftesam = Customer("Iftesam", "iftesam@example.com")
-iftesam.open_account(BankAccount(iftesam.name, 1000))
-iftesam.open_account(CheckingAccount(iftesam.name, 5000, overdraft_value=300))
+m1 = Money(100, "USD")
+m2 = Money(50, "USD")
+m3 = Money(50, "EUR")
 
-bank.add_customers(dhrubo)
-bank.add_customers(iftesam)
-
-print(f"customer:{bank.find_customer('iftesam')}")
-
-print(dhrubo.total_balance())   # 6000.0 — Customer doesn't care which Account subclass
-print(bank.total_assets())      # 6000.0 — Bank doesn't care which Customer, either
+print(m1 + m2)
+print(m1-m2)        # $150.00 USD
+print(m1 > m2)        # True
+# print(m1 + m3)      # Raises ValueError: Cannot add USD and EUR
