@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 11 — SOLID: Single Responsibility &amp; Open/Closed Principles</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<p class="kicker">Python OOP · Day 11 of the project path</p>
+<h1>SOLID: Single Responsibility &amp; Open/Closed Principles</h1>
+<p class="lede">Our <code>BankAccount</code> class currently balances math, manages ledger state, validates currencies, and prints console messages. Today we transition from writing working classes to designing maintainable systems using the two foundational SOLID principles: <strong>SRP</strong> and <strong>OCP</strong>.</p>
+
+<h2>The core idea</h2>
+<p>
+<strong>SOLID</strong> is an acronym for five software design principles popularized by Robert C. Martin ("Uncle Bob"). They serve as guidelines for building scalable, testable, and maintainable object-oriented architectures:
+</p>
+<ul>
+  <li><strong>S</strong> — Single Responsibility Principle (SRP)</li>
+  <li><strong>O</strong> — Open/Closed Principle (OCP)</li>
+  <li><strong>L</strong> — Liskov Substitution Principle (LSP)</li>
+  <li><strong>I</strong> — Interface Segregation Principle (ISP)</li>
+  <li><strong>D</strong> — Dependency Inversion Principle (DIP)</li>
+</ul>
+<p>
+Today we master <strong>SRP</strong> and <strong>OCP</strong>. These two principles prevent classes from turning into bloated "God Objects" and enable systems to grow without risking regressions in existing code.
+</p>
+
+<h2>1. Single Responsibility Principle (SRP)</h2>
+<p>
+<em>"A class should have one, and only one, reason to change."</em>
+</p>
+<p>
+A common misconception is that SRP means "a class should do only one function." In reality, SRP is about <strong>actors and responsibilities</strong>. If changes to bank accounting rules (finance team) and changes to statement formatting (UI/reporting team) both force you to edit <code>BankAccount.py</code>, the class violates SRP.
+</p>
+
+<h3>Before vs. After SRP:</h3>
+<pre><code># ❌ BEFORE: Violating SRP (Managing balance + ledger + printing)
+class BankAccount:
+    def __init__(self, owner, balance):
+        self.owner = owner
+        self.balance = balance
+
+    def deposit(self, amount):
+        self.balance += amount
+        print(f"[AUDIT] Deposited ${amount:.2f}")  # Presentation &amp; logging coupled inside domain!
+
+    def print_statement(self):
+        print(f"=== Statement for {self.owner} ===")
+        print(f"Current Balance: ${self.balance:.2f}")
+
+
+# ✅ AFTER: Adhering to SRP (Decoupled responsibilities)
+class BankAccount:
+    def __init__(self, owner, balance):
+        self.owner = owner
+        self.balance = balance
+        self.transactions = []
+
+    def deposit(self, money):
+        self.balance += money.amount
+        self.transactions.append(Transaction("DEPOSIT", money))
+
+
+class StatementPrinter:
+    """Sole responsibility: Formatting and outputting account records."""
+    @staticmethod
+    def to_text(account: BankAccount) -> str:
+        lines = [f"=== Statement: {account.owner} ==="]
+        for tx in account.transactions:
+            lines.append(f"{tx.timestamp:%Y-%m-%d %H:%M} | {tx.tx_type:10} | {tx.money}")
+        lines.append(f"Final Balance: ${account.balance:.2f}")
+        return "\n".join(lines)
+</code></pre>
+
+<h2>2. Open/Closed Principle (OCP)</h2>
+<p>
+<em>"Software entities (classes, modules, functions) should be open for extension, but closed for modification."</em>
+</p>
+<p>
+Once a class is tested and running in production, you shouldn't have to reopen its source code and add chains of <code>if/elif/else</code> statements every time business requirements change. Instead, design classes so new features can be added by <strong>extending</strong> (subclassing or injecting strategies), leaving original code untouched.
+</p>
+
+<div class="callout">
+  <div class="callout-title">Interview Tip: How to explain SRP &amp; OCP</div>
+  When interviewers ask about SOLID, avoid textbook definitions like "a class does one thing." Say: <em>"SRP states that a class should have only one reason to change, meaning it serves a single stakeholder or responsibility. OCP ensures we can introduce new system behaviors by adding new classes rather than modifying tested existing ones."</em>
+</div>
+
+<h2>Quick check</h2>
+<p>Answer from memory before moving on.</p>
+<div data-quiz>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">1. What is the most accurate definition of the Single Responsibility Principle?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">classes have one reason to change</button>
+      <button class="quiz-opt" data-key="b">classes have only one single method</button>
+      <button class="quiz-opt" data-key="c">classes run code without raising errors</button>
+      <button class="quiz-opt" data-key="d">classes inherit from only one parent</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — SRP means a class has a single responsibility and therefore a single reason to change." data-wrong="Not quite. SRP does not limit method count; it states that a class should have only one reason to change."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">2. What does the Open/Closed Principle state regarding software entities?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">open for extension closed for modification</button>
+      <button class="quiz-opt" data-key="b">open for public access closed internally</button>
+      <button class="quiz-opt" data-key="c">open for reading closed for writing</button>
+      <button class="quiz-opt" data-key="d">open for compilation closed during execution</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — OCP states software should be open for extension (adding new behaviors) but closed for modification (not rewriting existing working code)." data-wrong="Not quite. OCP stands for open for extension, but closed for modification."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">3. Why should statement printing be extracted out of the <code>BankAccount</code> class?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">separates formatting changes from account logic</button>
+      <button class="quiz-opt" data-key="b">makes balance calculation execute much faster</button>
+      <button class="quiz-opt" data-key="c">allows subclasses to override private fields</button>
+      <button class="quiz-opt" data-key="d">prevents python from raising TypeError exceptions</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — extracting printing separates presentation/formatting concerns from the core banking domain logic." data-wrong="Not quite. Extracting printing decouples visual formatting concerns from core accounting business rules."></p>
+  </div>
+
+</div>
+
+<h2>Primary source</h2>
+<p>
+Read <a href="https://realpython.com/solid-principles-python/" target="_blank" rel="noopener">Real Python — SOLID Design Principles: Improve Object-Oriented Code in Python</a> for detailed examples of refactoring legacy code into clean SOLID architectures.
+</p>
+
+<h2>Today's project</h2>
+<div class="project-brief">
+  <h3>Refactor: Decouple Ledger &amp; Reporting from BankAccount</h3>
+  <p>Apply SRP and OCP to <code>projects/BankAccount.py</code> to separate transaction recording and statement generation.</p>
+  <ul class="checklist">
+    <li>Create a <code>Transaction</code> class (e.g. in <code>projects/BankAccount.py</code> or a new file) with attributes: <code>timestamp</code> (using <code>datetime.now()</code>), <code>tx_type</code> (e.g. <code>"DEPOSIT"</code>, <code>"WITHDRAWAL"</code>, <code>"FEE"</code>), and <code>money</code></li>
+    <li>Add a <code>transactions</code> list attribute to <code>BankAccount</code> to store a complete audit trail of <code>Transaction</code> objects</li>
+    <li>Remove direct <code>print(...)</code> side effects from <code>deposit()</code>, <code>withdraw()</code>, and <code>add_interest()</code> so methods focus strictly on business logic</li>
+    <li>Create a dedicated <code>StatementPrinter</code> class with a method (e.g. <code>print_statement(account)</code> or <code>generate_text_statement(account)</code>) that formats and displays the account summary and transaction table</li>
+    <li>Demonstrate OCP: add a new <code>VIPAccount(SavingsAccount)</code> or a <code>CashbackCheckingAccount</code> with a unique reward feature without modifying any code inside the original <code>BankAccount</code> or <code>CheckingAccount</code> base classes!</li>
+  </ul>
+  <p><strong>Stretch goal:</strong> Add a <code>generate_csv_statement(account)</code> or <code>generate_json_statement(account)</code> to <code>StatementPrinter</code>, showing how multiple output formats can be supported without changing <code>BankAccount</code>.</p>
+</div>
+
+<p class="ask-agent">
+  <strong>Stuck, or want your code reviewed?</strong> Run your updated project with sample transactions and statement printing. When you can explain why removing <code>print()</code> statements from domain methods satisfies SRP, let me know and we'll unlock Day 12 (LSP, ISP, DIP)!
+</p>
+
+<footer class="lesson-nav">
+  <a href="0010-custom-exceptions.html">&larr; Day 10: Custom Exceptions</a>
+  <a href="0012-solid-lsp-isp-dip.html">Next: Day 12 — SOLID: LSP, ISP &amp; DIP &rarr;</a>
+</footer>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

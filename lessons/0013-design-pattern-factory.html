@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 13 — Design Pattern: Factory</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<p class="kicker">Python OOP · Day 13 of the project path</p>
+<h1>Design Pattern: Factory &amp; Registry-Based Object Creation</h1>
+<p class="lede">Our banking system now has four specialized account types, multiple notifiers, and distinct configuration rules. Creating these objects directly across CLI scripts or API endpoints scatters instantiation logic and violates OCP. Today we master the <strong>Factory Pattern</strong> to centralize, standardize, and dynamically extend object creation.</p>
+
+<h2>The core idea</h2>
+<p>
+The <strong>Factory Pattern</strong> is a creational design pattern that abstracts the process of object instantiation. Instead of calling concrete constructors directly (e.g. <code>CheckingAccount(owner, balance, fee, overdraft, notifier)</code>) throughout your application, client code requests a new instance from a dedicated factory interface.
+</p>
+
+<h3>Why direct instantiation becomes painful:</h3>
+<ul>
+  <li><strong>Scattered <code>if/elif/else</code> ladders:</strong> Every time a new account type is added, you must update conditional branches across every module that creates accounts.</li>
+  <li><strong>Leaky configuration details:</strong> Client code (e.g. a web controller or CLI menu) shouldn't need to know internal defaults like interest rates, fee tiers, or how to wire up <code>Notifier</code> instances.</li>
+  <li><strong>Violation of OCP &amp; SRP:</strong> Adding new domain products forces modification of existing client workflows.</li>
+</ul>
+
+<h2>1. Simple Factory vs. Registry-Based Factory</h2>
+
+<h3>Approach A: Simple Factory Function</h3>
+<pre><code>class SimpleAccountFactory:
+    @staticmethod
+    def create_account(account_type: str, owner: str, balance: Money, **kwargs) -> BankAccount:
+        acc_type = account_type.lower()
+        if acc_type == "savings":
+            return SavingsAccount(owner, balance, interest_rate=kwargs.get("interest_rate", 0.02))
+        elif acc_type == "checking":
+            return CheckingAccount(owner, balance, overdraft_value=kwargs.get("overdraft_value", 300))
+        elif acc_type == "investment":
+            return InvestmentAccount(owner, balance, return_rate=kwargs.get("return_rate", 0.07))
+        else:
+            raise ValueError(f"Unknown account type: {account_type}")
+</code></pre>
+<p>
+While simple factories centralize creation, the <code>if/elif/else</code> ladder still requires reopening the factory class whenever a new account subclass is created.
+</p>
+
+<h3>Approach B: Registry-Based Extensible Factory (Pythonic &amp; 100% OCP)</h3>
+<p>
+In Python, we can leverage first-class classes and decorators to build an <strong>extensible registry factory</strong>. New account types register themselves dynamically without modifying a single line of the factory:
+</p>
+
+<pre><code>from typing import Callable, Type
+
+class AccountFactory:
+    _registry: dict[str, Type[BankAccount]] = {}
+
+    @classmethod
+    def register(cls, account_type: str):
+        """Decorator to register new account classes dynamically."""
+        def decorator(subclass: Type[BankAccount]):
+            cls._registry[account_type.lower()] = subclass
+            return subclass
+        return decorator
+
+    @classmethod
+    def create(cls, account_type: str, owner: str, balance: Money, **kwargs) -> BankAccount:
+        key = account_type.lower()
+        if key not in cls._registry:
+            valid_types = ", ".join(cls._registry.keys())
+            raise ValueError(f"Unknown account type '{account_type}'. Supported: {valid_types}")
+        
+        target_class = cls._registry[key]
+        return target_class(owner, balance, **kwargs)
+
+# Decorating classes registers them automatically!
+@AccountFactory.register("savings")
+class SavingsAccount(BankAccount, InterestBearing):
+    ...
+
+@AccountFactory.register("checking")
+class CheckingAccount(BankAccount):
+    ...
+</code></pre>
+
+<h2>2. Factories with Dependency Injection (Wiring Notifiers)</h2>
+<p>
+Factories excel at assembling complex object graphs — such as instantiating the correct <code>Notifier</code> strategy and injecting it into the new account based on a configuration dictionary:
+</p>
+
+<pre><code>class BankService:
+    @staticmethod
+    def create_from_payload(payload: dict) -> BankAccount:
+        """
+        Payload example:
+        {
+            "type": "savings",
+            "owner": "Alice",
+            "initial_amount": 1000.0,
+            "currency": "USD",
+            "notifier_type": "email",
+            "email": "alice@example.com",
+            "interest_rate": 0.03
+        }
+        """
+        money = Money(payload["initial_amount"], payload.get("currency", "USD"))
+        
+        # Wire up notifier
+        notifier_type = payload.get("notifier_type", "console").lower()
+        if notifier_type == "email":
+            notifier = EmailNotifier(payload["email"])
+        elif notifier_type == "sms":
+            notifier = SMSNotifier(payload["phone_number"])
+        else:
+            notifier = ConsoleNotifier()
+
+        # Build account via factory
+        extra_args = {k: v for k, v in payload.items() if k not in ("type", "owner", "initial_amount", "currency", "notifier_type", "email", "phone_number")}
+        return AccountFactory.create(payload["type"], payload["owner"], money, notifier=notifier, **extra_args)
+</code></pre>
+
+<div class="callout">
+  <div class="callout-title">Interview Tip: Factory Method vs Abstract Factory</div>
+  When asked in interviews:
+  <ul>
+    <li><strong>Factory Method:</strong> Uses inheritance or dedicated functions to create a single product (e.g., <code>create_account()</code>).</li>
+    <li><strong>Abstract Factory:</strong> Provides an interface for creating <em>families of related or dependent objects</em> without specifying concrete classes (e.g., a <code>RetailBankFactory</code> creating standard accounts + console notifiers vs. a <code>CorporateBankFactory</code> creating commercial accounts + audit loggers + webhooks).</li>
+  </ul>
+</div>
+
+<h2>Quick check</h2>
+<p>Answer from memory before moving on.</p>
+<div data-quiz>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">1. What primary architectural problem does the Factory pattern solve?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">decouples client code from concrete class instantiation details</button>
+      <button class="quiz-opt" data-key="b">prevents classes from using inheritance or polymorphism</button>
+      <button class="quiz-opt" data-key="c">speeds up python bytecode interpretation at runtime</button>
+      <button class="quiz-opt" data-key="d">eliminates the need for abstract base classes entirely</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — Factories encapsulate creation logic so client code only depends on abstractions and interfaces." data-wrong="Not quite. The Factory pattern centralizes and decouples object instantiation logic from caller code."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">2. Why is a registry-based factory with a <code>@register</code> decorator superior to an <code>if/elif/else</code> factory?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">satisfies OCP by allowing new types to be added without modifying factory code</button>
+      <button class="quiz-opt" data-key="b">makes constructor execution run with zero memory allocations</button>
+      <button class="quiz-opt" data-key="c">restricts object creation to only one single global instance</button>
+      <button class="quiz-opt" data-key="d">forces all classes to inherit from built-in dictionary types</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — New account types register themselves dynamically, adhering perfectly to the Open/Closed Principle." data-wrong="Not quite. A registry allows extending the factory with new classes without editing the factory's existing source code (OCP)."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">3. When should you choose an Abstract Factory over a simple Factory Method?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">when creating families of coordinated related objects</button>
+      <button class="quiz-opt" data-key="b">when a class has only one single instance attribute</button>
+      <button class="quiz-opt" data-key="c">when an application never uses polymorphism</button>
+      <button class="quiz-opt" data-key="d">when methods only take primitive float parameters</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — Abstract Factories create suites of related components (e.g. account + notifier + fee policy) that belong together." data-wrong="Not quite. Abstract Factory is used when you need to construct entire families of related objects together."></p>
+  </div>
+
+</div>
+
+<h2>Primary sources</h2>
+<p>
+Read <a href="https://realpython.com/factory-method-python/" target="_blank" rel="noopener">Real Python — The Factory Method Pattern and Its Implementation in Python</a> and check out <a href="https://refactoring.guru/design-patterns/factory-method" target="_blank" rel="noopener">Refactoring Guru: Factory Method</a> for visual structural diagrams and trade-offs.
+</p>
+
+<h2>Today's project</h2>
+<div class="project-brief">
+  <h3>Implement: Account Factory &amp; Payload-Driven Account Generation</h3>
+  <p>Create a dedicated factory system to streamline account and notifier creation in our banking ecosystem.</p>
+  <ul class="checklist">
+    <li>Create a dedicated module <code>projects/AccountFactory.py</code>.</li>
+    <li>Implement a registry-based <code>AccountFactory</code> class supporting dynamic registration via <code>@AccountFactory.register(type_name)</code>.</li>
+    <li>Register existing account types (<code>"savings"</code>, <code>"checking"</code>, <code>"vip"</code>, <code>"investment"</code>) with the factory.</li>
+    <li>Implement a <code>create_from_dict(cls, data: dict) -&gt; BankAccount</code> helper that parses raw dictionary configurations (e.g., initial balance, currency, account type, and notifier configuration) and returns fully configured <code>BankAccount</code> instances with dependencies injected.</li>
+    <li>Write client demo code instantiating a diverse portfolio of accounts purely through <code>AccountFactory.create()</code> and <code>AccountFactory.create_from_dict()</code>.</li>
+  </ul>
+  <p><strong>Stretch goal:</strong> Create a <code>BankingTierFactory(ABC)</code> (Abstract Factory pattern) with two concrete factories: <code>StandardBankingFactory</code> (produces <code>SavingsAccount</code>/<code>CheckingAccount</code> with <code>ConsoleNotifier</code>) and <code>PremiumBankingFactory</code> (produces <code>VipAccount</code>/<code>InvestmentAccount</code> with <code>EmailNotifier</code> or <code>SMSNotifier</code>).</p>
+</div>
+
+<p class="ask-agent">
+  <strong>Stuck, or want your code reviewed?</strong> Run your updated factory module with sample creation payloads. When you can explain why registry-based factories satisfy the Open/Closed Principle, let me know and we'll unlock Day 14 (Design Pattern: Strategy)!
+</p>
+
+<footer class="lesson-nav">
+  <a href="0012-solid-lsp-isp-dip.html">&larr; Day 12: SOLID: LSP, ISP &amp; DIP</a>
+  <a href="0014-design-pattern-strategy.html">Next: Day 14 — Design Pattern: Strategy &rarr;</a>
+</footer>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

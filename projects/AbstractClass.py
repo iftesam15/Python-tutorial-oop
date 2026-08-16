@@ -9,10 +9,4 @@ class Account(ABC):
     def account_type(self):
         ...
 
- 
 
-class SavingsAccount(Account):
-    def account_type(self):
-        return "Savings"
-  
-savingone=SavingsAccount("Dhrubo",100)    

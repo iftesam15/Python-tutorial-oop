@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 12 — SOLID: LSP, ISP &amp; DIP</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<p class="kicker">Python OOP · Day 12 of the project path</p>
+<h1>SOLID: Liskov Substitution, Interface Segregation &amp; Dependency Inversion</h1>
+<p class="lede">Yesterday we decoupled ledger responsibilities (SRP) and made account types extensible (OCP). Today we complete the SOLID suite with <strong>LSP</strong>, <strong>ISP</strong>, and <strong>DIP</strong> — the principles that ensure our abstractions stay honest, modular, and loosely coupled.</p>
+
+<h2>The core idea</h2>
+<p>
+The final three principles of SOLID govern how classes interact through inheritance and interfaces:
+</p>
+<ul>
+  <li><strong>L — Liskov Substitution Principle (LSP):</strong> A subclass must be substitutable for its superclass without breaking client code or violating expected behavior.</li>
+  <li><strong>I — Interface Segregation Principle (ISP):</strong> Clients should never be forced to depend on methods they do not use; lean, focused interfaces beat bloated "fat" interfaces.</li>
+  <li><strong>D — Dependency Inversion Principle (DIP):</strong> High-level modules should depend on abstractions (interfaces/protocols), not low-level concrete implementations.</li>
+</ul>
+
+<h2>1. Liskov Substitution Principle (LSP)</h2>
+<p>
+<em>"If $S$ is a subtype of $T$, then objects of type $T$ may be replaced with objects of type $S$ without altering any of the desirable properties of the program."</em> — Barbara Liskov (1987)
+</p>
+<p>
+In practice, if client code expects a <code>BankAccount</code>, passing a <code>SavingsAccount</code>, <code>CheckingAccount</code>, or <code>VipAccount</code> should never cause unexpected crashes, return unexpected types, or require special <code>isinstance</code> checks.
+</p>
+
+<h3>❌ LSP Violation: The "Locked" or "Read-Only" Account Trap</h3>
+<pre><code>class BankAccount(ABC):
+    @abstractmethod
+    def withdraw(self, money: Money):
+        pass
+
+class CertificateOfDeposit(BankAccount):
+    """A locked savings account with a fixed term."""
+    def withdraw(self, money: Money):
+        # ❌ VIOLATION: Calling code expecting BankAccount will crash unexpectedly!
+        raise NotImplementedError("Cannot withdraw from a CD before maturity date!")
+</code></pre>
+<p>
+If a batch processing function calls <code>account.withdraw()</code> on a list of <code>BankAccount</code>s, passing a <code>CertificateOfDeposit</code> will blow up at runtime. A <code>CertificateOfDeposit</code> is <em>not</em> fully substitutable for a general <code>BankAccount</code> if it cannot honor the withdrawal contract.
+</p>
+
+<h3>LSP Golden Rules:</h3>
+<ul>
+  <li><strong>Do not weaken preconditions:</strong> Don't demand extra required parameters in subclass method overrides.</li>
+  <li><strong>Do not strengthen postconditions:</strong> Don't return completely different data types or omit expected return values.</li>
+  <li><strong>Preserve invariant contracts &amp; exceptions:</strong> Only raise exceptions that caller code already expects from the base class (e.g. <code>BankingError</code> subclasses).</li>
+</ul>
+
+<h2>2. Interface Segregation Principle (ISP)</h2>
+<p>
+<em>"Clients should not be forced to depend upon interfaces that they do not use."</em>
+</p>
+<p>
+Instead of creating a giant, monolithic base class with dozens of abstract methods (e.g., <code>deposit</code>, <code>withdraw</code>, <code>add_interest</code>, <code>calculate_overdraft</code>, <code>issue_debit_card</code>), compose smaller, role-focused interfaces.
+</p>
+
+<h3>Pythonic ISP: Role ABCs and Protocols</h3>
+<p>
+In Python, we achieve ISP using either lightweight ABCs or <a href="https://docs.python.org/3/library/typing.html#typing.Protocol" target="_blank" rel="noopener"><code>typing.Protocol</code></a> (structural subtyping):
+</p>
+<pre><code>from abc import ABC, abstractmethod
+
+class Depositable(ABC):
+    @abstractmethod
+    def deposit(self, money: Money) -> None:
+        pass
+
+class Withdrawable(ABC):
+    @abstractmethod
+    def withdraw(self, money: Money) -> None:
+        pass
+
+class InterestBearing(ABC):
+    @abstractmethod
+    def add_interest(self) -> None:
+        pass
+
+# Now classes implement only what they actually support:
+class SavingsAccount(Depositable, Withdrawable, InterestBearing):
+    ...
+
+class FixedTermDeposit(Depositable, InterestBearing):
+    # Only deposits and earns interest — no bogus withdraw() method needed!
+    ...
+</code></pre>
+
+<h2>3. Dependency Inversion Principle (DIP)</h2>
+<p>
+<em>"1. High-level modules should not depend on low-level modules. Both should depend on abstractions.<br>
+2. Abstractions should not depend on details. Details should depend on abstractions."</em>
+</p>
+<p>
+Consider what happens when an account sends an alert upon withdrawal. If <code>BankAccount</code> directly imports and instantiates a <code>ConsoleLogger</code> or sends an email via a concrete <code>SMTPEmailClient</code>, the core domain is tightly coupled to concrete I/O mechanisms.
+</p>
+
+<h3>Applying DIP with Dependency Injection:</h3>
+<pre><code>from abc import ABC, abstractmethod
+
+# 1. Abstraction (high-level & low-level agree on this contract)
+class Notifier(ABC):
+    @abstractmethod
+    def notify(self, message: str) -> None:
+        pass
+
+# 2. Low-level concrete implementations
+class ConsoleNotifier(Notifier):
+    def notify(self, message: str) -> None:
+        print(f"[CONSOLE NOTICE]: {message}")
+
+class SMSNotifier(Notifier):
+    def __init__(self, phone_number: str):
+        self.phone_number = phone_number
+
+    def notify(self, message: str) -> None:
+        # e.g., integrate Twilio / SMS gateway
+        print(f"[SMS to {self.phone_number}]: {message}")
+
+# 3. High-level module depends ONLY on the Notifier abstraction
+class BankAccount:
+    def __init__(self, owner: str, balance: Money, notifier: Notifier = None):
+        self.owner = owner
+        self.balance = balance
+        self.notifier = notifier or ConsoleNotifier()  # Injected dependency
+
+    def withdraw(self, money: Money):
+        # ... validation and balance reduction ...
+        self.notifier.notify(f"Withdrawal of {money} completed for {self.owner}.")
+</code></pre>
+
+<div class="callout">
+  <div class="callout-title">Interview Tip: SOLID in Technical Interviews</div>
+  When asked <em>"How do you design extensible Python systems?"</em>:
+  Explain how <strong>DIP</strong> and <strong>Dependency Injection</strong> make code easily unit-testable (by injecting mock notifiers/exporters), while <strong>LSP</strong> ensures polymorphism doesn't produce runtime surprise exceptions, and <strong>ISP</strong> keeps interfaces modular and cohesive.
+</div>
+
+<h2>Quick check</h2>
+<p>Answer from memory before moving on.</p>
+<div data-quiz>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">1. What is a clear sign that a subclass violates the Liskov Substitution Principle (LSP)?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">overrides a base method to raise NotImplementedError</button>
+      <button class="quiz-opt" data-key="b">adds new helper methods specific to the subclass</button>
+      <button class="quiz-opt" data-key="c">calls super in its constructor initialization</button>
+      <button class="quiz-opt" data-key="d">inherits attributes from its abstract parent class</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — raising NotImplementedError or rejecting valid base inputs breaks caller expectations when substituting the subclass." data-wrong="Not quite. If a subclass cannot honor an inherited method and raises NotImplementedError, it violates LSP."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">2. How does the Interface Segregation Principle (ISP) improve class hierarchy design?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">splits bloated interfaces into smaller role-specific contracts</button>
+      <button class="quiz-opt" data-key="b">combines all application methods into a single master ABC</button>
+      <button class="quiz-opt" data-key="c">prevents classes from using multiple inheritance</button>
+      <button class="quiz-opt" data-key="d">forces all methods to return string formatted values</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — ISP ensures classes only implement interfaces relevant to their specific role." data-wrong="Not quite. ISP promotes small, role-focused interfaces over giant monolithic classes."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">3. Under the Dependency Inversion Principle (DIP), what should high-level classes depend on?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">abstractions rather than concrete implementations</button>
+      <button class="quiz-opt" data-key="b">low-level concrete database and logger classes</button>
+      <button class="quiz-opt" data-key="c">global singleton instances created at import time</button>
+      <button class="quiz-opt" data-key="d">operating system specific file path strings</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — DIP requires high-level and low-level modules to depend on shared abstractions (e.g. ABCs or Protocols) injected from the outside." data-wrong="Not quite. DIP states high-level modules must depend on abstractions (interfaces), not concrete implementations."></p>
+  </div>
+
+</div>
+
+<h2>Primary sources</h2>
+<p>
+Check out <a href="https://realpython.com/solid-principles-python/#liskov-substitution-principle-lsp" target="_blank" rel="noopener">Real Python — SOLID Principles in Python (LSP, ISP, DIP)</a> and explore Python's <a href="https://docs.python.org/3/library/typing.html#typing.Protocol" target="_blank" rel="noopener">Protocol documentation</a> for modern interface design.
+</p>
+
+<h2>Today's project</h2>
+<div class="project-brief">
+  <h3>Refactor: Apply LSP, ISP, and DIP to the Banking System</h3>
+  <p>Solidify our banking architecture by decoupling interfaces and injecting notification/export dependencies.</p>
+  <ul class="checklist">
+    <li><strong>Interface Segregation (ISP):</strong> In a new or refactored module, define role interfaces (ABCs or Protocols) such as <code>InterestBearing(ABC)</code> with an abstract <code>add_interest()</code> method, ensuring only savings/investment accounts implement it.</li>
+    <li><strong>Dependency Inversion (DIP):</strong>
+      <ul>
+        <li>Create an abstract base class <code>Notifier(ABC)</code> with <code>@abstractmethod def send(self, message: str) -&gt; None:</code></li>
+        <li>Implement concrete notifiers: <code>ConsoleNotifier(Notifier)</code> and <code>EmailNotifier(Notifier)</code> (which formats an email alert with recipient) or <code>SMSNotifier(Notifier)</code></li>
+        <li>Inject <code>notifier: Notifier</code> into <code>BankAccount</code> via <code>__init__</code> (defaulting to <code>ConsoleNotifier()</code> if none is provided).</li>
+        <li>When a deposit or withdrawal occurs, notify via <code>self.notifier.send(...)</code> instead of direct <code>print()</code> statements inside domain logic!</li>
+      </ul>
+    </li>
+    <li><strong>Liskov Substitution (LSP):</strong>
+      <ul>
+        <li>Ensure all account subclasses (<code>SavingsAccount</code>, <code>CheckingAccount</code>, <code>VipAccount</code>) accept and return identical types for <code>deposit(money: Money)</code> and <code>withdraw(money: Money)</code>.</li>
+        <li>Write a test helper function <code>process_payroll(accounts: list[BankAccount], bonus: Money)</code> that deposits funds into any list of accounts interchangeably without checking `type(acc)`.</li>
+      </ul>
+    </li>
+  </ul>
+  <p><strong>Stretch goal:</strong> Create an abstract <code>StatementFormatter(ABC)</code> with an abstract <code>format(self, account: BankAccount) -&gt; str</code>, and implement <code>TextStatementFormatter</code>, <code>CSVStatementFormatter</code>, and <code>JSONStatementFormatter</code>. Pass the formatter to <code>StatementPrinter.print(account, formatter)</code>.</p>
+</div>
+
+<p class="ask-agent">
+  <strong>Stuck, or want your code reviewed?</strong> Run your updated project with dependency injection and polymorphically process multiple account types. When you can explain how Dependency Inversion makes unit testing easier, let me know and we'll unlock Day 13 (Design Pattern: Factory)!
+</p>
+
+<footer class="lesson-nav">
+  <a href="0011-solid-srp-ocp.html">&larr; Day 11: SOLID: SRP &amp; OCP</a>
+  <a href="0013-design-pattern-factory.html">Next: Day 13 — Design Pattern: Factory &rarr;</a>
+</footer>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>
