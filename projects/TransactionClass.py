@@ -17,21 +17,21 @@ class Transaction:
         return f"{self.timestamp}, {self.tx_type}, {self.money}"
 
 
-class Action:
-    action_name= 'KiCK the ball'
-    
-    @classmethod
-    def change_name(cls,name:str):
-        cls.action_name = name
-
-    def do_action(self):
-        print(f"doing {self.action_name}")
+if __name__ == "__main__":
+    class Action:
+        action_name = 'KiCK the ball'
         
+        @classmethod
+        def change_name(cls, name: str):
+            cls.action_name = name
 
+        def do_action(self):
+            print(f"doing {self.action_name}")
 
-print(Action.action_name)
-action = Action()
-action.do_action()
-Action.change_name("Dunk the ball")
-action.do_action()
-print(Action.action_name)
+    print(Action.action_name)
+    action = Action()
+    action.do_action()
+    Action.change_name("Dunk the ball")
+    action.do_action()
+    print(Action.action_name)
+

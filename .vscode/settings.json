@@ -1,4 +1,11 @@
 {
   "liveServer.settings.port": 5501,
-  "python.REPL.enableREPLSmartSend": false
+  "python.REPL.enableREPLSmartSend": false,
+  "python-envs.pythonProjects": [
+    {
+      "path": ".venv",
+      "envManager": "ms-python.python:venv",
+      "packageManager": "ms-python.python:pip"
+    }
+  ]
 }

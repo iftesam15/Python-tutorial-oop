@@ -3,48 +3,8 @@ from BankingExceptions import CurrencyMismatchError, InsufficientFundsError, Inv
 from TransactionClass import Transaction
 from Interfaces import InterestBearing, Depositable, Withdrawable
 from Notifiers import Notifier, ConsoleNotifier, EmailNotifier, SMSNotifier
-class Money:
-    def __init__(self,amount,currency="USD"):
-        self.amount = float(amount)
-        self.currency= currency.upper()
-
-    def __repr__(self):
-        return f"Money({self.amount!r},{self.currency!r})"
-
-    def __str__(self):
-        return f"{self.amount:.2f} {self.currency}"     
-
-    def __add__(self,other):
-        if not isinstance(other,Money):
-            return NotImplemented
-        
-        if self.currency != other.currency:
-            raise CurrencyMismatchError(self.currency, other.currency)
-        return  Money(self.amount + other.amount,self.currency)
-
-    def __sub__(self,other):
-        if not isinstance(other,Money):
-            raise ValueError(f"Cannot subtract {self.currency} from {other.currency} ")
-
-        if self.currency != other.currency:
-           raise CurrencyMismatchError(self.currency,other.currency)
-        return  Money(self.amount - other.amount,self.currency)
-
-    def __eq__(self, other):
-        if not isinstance(other, Money):
-            return NotImplemented
-        return self.amount == other.amount and self.currency == other.currency
-
-    def __lt__(self, other):
-        if not isinstance(other, Money):
-            return NotImplemented
-        if self.currency != other.currency:
-            raise CurrencyMismatchError(self.currency,other.currency)
-        return self.amount < other.amount        
-
-
-
-
+from AccountFactory import AccountFactory
+from Money import Money
 class BankAccount(ABC):
     minimum_balance = 0
     bank_name = "Python National Bank"
@@ -66,10 +26,11 @@ class BankAccount(ABC):
         return self._balance
 
     @balance.setter
-    def balance(self,value):
-        if value <self.minimum_balance:
+    def balance(self, value):
+        amount = value.amount if isinstance(value, Money) else float(value)
+        if amount < self.minimum_balance:
             raise ValueError("Balance cannot be negative")
-        self._balance = value 
+        self._balance = amount 
 
     @property
     def owner(self):
@@ -142,7 +103,7 @@ class BankAccount(ABC):
  Savings account class 
 """
 
-
+@AccountFactory.register("savings")
 class SavingsAccount(BankAccount, InterestBearing):
     def __init__(self, owner, balance=0, interest_rate=0.02, notifier: Notifier = None):
         super().__init__(owner, balance, notifier=notifier)
@@ -166,6 +127,7 @@ class SavingsAccount(BankAccount, InterestBearing):
  Investment account class (Implements InterestBearing)
 """
 
+@AccountFactory.register("investment")
 class InvestmentAccount(BankAccount, InterestBearing):
     def __init__(self, owner, balance=0, return_rate=0.07, notifier: Notifier = None):
         super().__init__(owner, balance, notifier=notifier)
@@ -182,6 +144,7 @@ class InvestmentAccount(BankAccount, InterestBearing):
  Checking account class 
 """        
 
+@AccountFactory.register("checking")
 class CheckingAccount(BankAccount):
     bank_name = "Python National Bank branch-1"
 
@@ -278,6 +241,7 @@ class StatementPrinter:
 
 
 
+@AccountFactory.register("vip")
 class VipAccount(SavingsAccount):
      def __init__(self, owner, balance, interest_boost, notifier: Notifier = None):
         super().__init__(owner, balance, notifier=notifier)
@@ -372,3 +336,72 @@ process_payroll(payroll_accounts,bonus=Money(250,"USD"))
 
 
 
+from typing import Callable
+
+class UserService:
+    def __init__(self,logger:Callable[[str],None]):
+        self.logger=logger  #self.logger is console_logger
+
+    def create_user(self):
+        self.logger('user created')   #here calling console_logger
+                                      #parameter being passed to logger is 'user created'
+    def delete_user(self):
+        self.logger('user deleted')   #here calling console_logger
+                                      #parameter being passed to logger is 'user deleted'
+
+def console_logger(message:str):
+    print(f'LOG:{message}')
+
+def file_logger(message:str):
+    with open("log.txt", "a") as f:
+        f.write(message + "\n")    
+
+
+user1 = UserService(console_logger)            
+user1.create_user()
+user1.delete_user()
+
+# =====================================================================
+# Demonstration of Factory Pattern (Lesson 13)
+# =====================================================================
+print("\n--- Factory Pattern Demonstration (Lesson 13) ---")
+print("Registered Account Types in Factory:", AccountFactory.get_registered_types())
+
+# 1. Creating via AccountFactory.create()
+fact_savings = AccountFactory.create("savings", "Maya", Money(3000, "USD"), interest_rate=0.04)
+fact_checking = AccountFactory.create("checking", "Liam", Money(1500, "USD"), overdraft_value=400)
+fact_vip = AccountFactory.create("vip", "Sophia", Money(8000, "USD"), interest_boost=8)
+
+print(f"Factory created: {fact_savings}")
+print(f"Factory created: {fact_checking}")
+print(f"Factory created: {fact_vip}")
+
+# 2. Creating via AccountFactory.create_from_dict() with Dependency Injection
+payload_email_account = {
+    "type": "savings",
+    "owner": "Olivia",
+    "balance": 4500.0,
+    "currency": "USD",
+    "interest_rate": 0.05,
+    "notifier": "email",
+    "email": "olivia@example.com"
+}
+
+payload_sms_account = {
+    "type": "checking",
+    "owner": "Noah",
+    "balance": 2200.0,
+    "currency": "USD",
+    "overdraft_value": 500,
+    "notifier": "sms",
+    "phone": "+1-800-555-0144"
+}
+
+dict_acc1 = AccountFactory.create_from_dict(payload_email_account)
+dict_acc2 = AccountFactory.create_from_dict(payload_sms_account)
+
+print("\n--- Operations on Dict-Configured Accounts ---")
+dict_acc1.deposit(Money(500, "USD"))
+dict_acc2.withdraw(Money(300, "USD"))
+
+print(AccountFactory._registry)
