@@ -140,6 +140,9 @@ class SavingsAccount(BankAccount, InterestBearing):
         earned = self.interest.calculate(self.balance)
         return self.deposit(Money(earned, "USD"))
 
+    def set_interest_strategy(self, strategy: InterestStrategy) -> None:
+        self.interest = strategy
+
     def account_type(self):
         return "Savings"
 
@@ -151,13 +154,26 @@ class SavingsAccount(BankAccount, InterestBearing):
 
 @AccountFactory.register("investment")
 class InvestmentAccount(BankAccount, InterestBearing):
-    def __init__(self, owner, balance=0, return_rate=0.07, notifier: Notifier = None):
+    def __init__(
+        self,
+        owner,
+        balance=0,
+        return_rate=0.07,
+        interest: InterestStrategy | None = None,
+        notifier: Notifier = None,
+    ):
         super().__init__(owner, balance, notifier=notifier)
+        self.interest = (
+            interest if interest is not None else FixedRateInterest(return_rate)
+        )
         self.return_rate = return_rate
 
     def add_interest(self):
-        returns = self.balance * self.return_rate
+        returns = self.interest.calculate(self.balance)
         self.deposit(Money(returns, "USD"))
+
+    def set_interest_strategy(self, strategy: InterestStrategy) -> None:
+        self.interest = strategy
 
     def account_type(self):
         return "Investment"
@@ -166,6 +182,8 @@ class InvestmentAccount(BankAccount, InterestBearing):
 """
  Checking account class 
 """
+
+from Strategies import FeeStrategy, FixedFee, PercentageFee
 
 
 @AccountFactory.register("checking")
@@ -176,13 +194,20 @@ class CheckingAccount(BankAccount):
         self,
         owner,
         balance=0,
-        transaction_fee=1.5,
+        transaction_strategy: FeeStrategy | None = None,
         overdraft_value=300,
         notifier: Notifier = None,
     ):
         super().__init__(owner, balance, notifier=notifier)
-        self.transaction_fee = transaction_fee
+        self.transaction_strategy = (
+            transaction_strategy
+            if isinstance(transaction_strategy, FeeStrategy)
+            else FixedFee(1.5)
+        )
         self.minimum_balance = -overdraft_value
+
+    def set_fee_strategy(self, strategy: FeeStrategy) -> None:
+        self.transaction_strategy = strategy
 
     def withdraw(
         self, money: Money
@@ -190,8 +215,8 @@ class CheckingAccount(BankAccount):
         if not isinstance(money, Money):
             raise TypeError(f"Expected Money instance, got {type(money).__name__}")
         if self.is_valid_amount(money.amount):
-            total = money.amount + self.transaction_fee
-            fee = Money(self.transaction_fee, money.currency)
+            total = money.amount + self.transaction_strategy.calculate(money.amount)
+            fee = Money(self.transaction_strategy.calculate(money.amount), money.currency)
             if self.balance - total < self.minimum_balance:
                 raise OverdraftLimitError(total, self.balance, self.minimum_balance)
             self.balance -= total
@@ -281,13 +306,19 @@ class StatementPrinter:
 @AccountFactory.register("vip")
 class VipAccount(SavingsAccount):
     def __init__(
-        self, owner, balance, interest: InterestStrategy, notifier: Notifier = None
+        self,
+        owner,
+        balance,
+        interest: InterestStrategy | None = None,
+        notifier: Notifier = None,
     ):
-        super().__init__(owner, balance, notifier=notifier)
-        self.interest = interest
+        interest_strategy = (
+            interest if interest is not None else PromotionalInterest(0.05, 10)
+        )
+        super().__init__(owner, balance, interest=interest_strategy, notifier=notifier)
 
     def add_interest(self):
-        earned = self.interest.calculate(self.balance, self.interest.boost)
+        earned = self.interest.calculate(self.balance)
         self.deposit(Money(earned, "USD"))
 
 
@@ -445,6 +476,7 @@ payload_sms_account = {
     "owner": "Noah",
     "balance": 2200.0,
     "currency": "USD",
+    "transaction_strategy":PercentageFee(0.02),
     "overdraft_value": 500,
     "notifier": "sms",
     "phone": "+1-800-555-0144",
@@ -459,4 +491,25 @@ dict_checking_account.withdraw(Money(300, "USD"))
 
 dict_savings_account.add_interest()
 
-# print(AccountFactory._registry)
+# =====================================================================
+# Demonstration of Strategy Pattern: Runtime Strategy Swap (Lesson 14)
+# =====================================================================
+print("\n--- Strategy Pattern: Runtime Strategy Swap (Lesson 14) ---")
+
+# 1. Create an account with a base fixed-rate strategy (e.g., 2% interest)
+promo_savings = SavingsAccount("Emma", Money(5000, "USD"), interest=FixedRateInterest(0.02))
+print(f"Created account: {promo_savings.owner}'s {promo_savings.account_type()} account with initial balance: ${promo_savings.balance:.2f}")
+
+# 2. Apply standard interest and print result
+print("\n[Step 1] Applying standard interest (FixedRateInterest @ 2%):")
+promo_savings.add_interest()
+print(f"Result 1 (Standard Interest): Balance is now ${promo_savings.balance:.2f}")
+
+# 3. Replace strategy at runtime (promo weekend: 5% interest + $50 bonus boost)
+print("\n[Step 2] Promo Weekend Activated! Swapping strategy at runtime to PromotionalInterest (5% + $50 boost)...")
+promo_savings.set_interest_strategy(PromotionalInterest(rate=0.05, boost=50.0))
+
+# 4. Apply interest again under the new strategy and print result
+print("Applying promo weekend interest:")
+promo_savings.add_interest()
+print(f"Result 2 (Promo Weekend Interest): Balance is now ${promo_savings.balance:.2f}")
