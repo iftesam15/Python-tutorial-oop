@@ -24,6 +24,12 @@
   Conceptual + real-world Python code for all 22 classic GoF patterns. Use for: Factory/Strategy/Observer lessons in the later, harder projects.
 - [RefactoringGuru/design-patterns-python (GitHub)](https://github.com/RefactoringGuru/design-patterns-python)
   Runnable source for the above. Use for: pulling a working example to compare against the user's own attempt.
+- [Strategy — Refactoring.Guru](https://refactoring.guru/design-patterns/strategy)
+  Canonical intent, structure (context / strategy / client), runtime swap, and contrasts with Factory, Template Method, and State. Use for: Day 14 Strategy lesson and interview “when would you use this?”
+- [Strategy in Python — Refactoring.Guru](https://refactoring.guru/design-patterns/strategy/python/example)
+  Runnable Python sample: context holds a strategy, setter replaces it, concrete strategies implement one method. Use for: comparing the bank’s interest/fee strategies against a minimal example.
+- [Python’s .__call__() Method: Creating Callable Instances — Real Python](https://realpython.com/python-callable-instances/)
+  Shows Strategy via callable objects (JSON/YAML serializers) — the Pythonic middle ground between plain functions and ABC classes. Use for: Day 14 “functions vs classes vs __call__” choice.
 
 ## Wisdom (Communities)
 

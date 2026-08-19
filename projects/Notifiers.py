@@ -22,19 +22,19 @@ class ConsoleNotifier(Notifier):
 
 class EmailNotifier(Notifier):
     """Low-level concrete notifier that formats and sends email alerts."""
-     
-    def __init__(self,user_email):
-        self.user_email= user_email
 
-    def send(self,message):
-        return print(f"[EMAIL to {self.user_email}] Notification:{message}")    
+    def __init__(self, user_email):
+        self.user_email = user_email
+
+    def send(self, message):
+        return print(f"[EMAIL to {self.user_email}] Notification:{message}")
 
 
 class SMSNotifier(Notifier):
     """Low-level concrete notifier that formats and sends SMS text alerts."""
 
-    def __init__(self, phone_number: str):
-        self.phone_number = phone_number
+    def __init__(self, user_number):
+        self.user_number = user_number
 
-    def send(self, message: str) -> None:
-        print(f"[SMS to {self.phone_number}] Alert: {message}")
+    def send(self, message):
+        return print(f" [SMS to {self.user_number}] Notification:{message}")

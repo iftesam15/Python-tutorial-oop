@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 14 — Design Pattern: Strategy</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<p class="kicker">Python OOP · Day 14 of the project path</p>
+<h1>Design Pattern: Strategy — Swap the Algorithm, Keep the Account</h1>
+<p class="lede">Factory answered <em>which class to construct</em>. Strategy answers a different interview question: <em>how should this object do one job, and can we change that how without a new subclass?</em> Today we extract interest and fee math out of account types so a promo, a compounding rule, or a fee waiver is a swap — not a new inheritance branch.</p>
+
+<h2>The core idea</h2>
+<p>
+<a href="https://refactoring.guru/design-patterns/strategy" target="_blank" rel="noopener">Strategy</a> is a <strong>behavioral</strong> pattern: define a family of algorithms, put each in its own object, and make those objects interchangeable. The object that uses them is the <strong>context</strong>. It stores a strategy and <em>delegates</em> — it does not embed every variant in <code>if/elif</code> or in a forest of subclasses.
+</p>
+<p>
+You already built this shape once without the name. <a href="0012-solid-lsp-isp-dip.html">Day 12</a> injected a <code>Notifier</code> and called <code>self.notifier.send(...)</code>. That is DIP <em>and</em> Strategy: the algorithm for “how we notify” lives in a collaborator you can replace. Interest and fees still live <em>inside</em> the account classes.
+</p>
+
+<h3>The pain in our bank</h3>
+<p>
+<code>SavingsAccount.add_interest</code> multiplies by <code>interest_rate</code>. <code>InvestmentAccount</code> multiplies by <code>return_rate</code>. <code>VipAccount</code> adds a boost. <code>CheckingAccount.withdraw</code> always adds a flat <code>transaction_fee</code>. Want weekend promo rates, compound interest, or “first three withdrawals free”? Today that means another subclass or another <code>if</code> — the same bloating <a href="https://refactoring.guru/design-patterns/strategy" target="_blank" rel="noopener">Refactoring.Guru</a> describes for a navigator that grew a new routing method for every travel mode.
+</p>
+<p>
+Inheritance here is doing Template Method’s job (vary a step by subclassing). That is static: the algorithm is fixed when the class is chosen. Strategy is composition: the same <code>SavingsAccount</code> instance can run a different interest algorithm after construction.
+</p>
+
+<h2>1. Context + strategy interface</h2>
+<p>
+Three moving parts (<a href="../reference/strategy-pattern.html">cheat sheet</a>):
+</p>
+<ul>
+  <li><strong>Strategy</strong> — one method the context understands (e.g. <code>calculate(balance) -&gt; float</code>).</li>
+  <li><strong>Concrete strategies</strong> — each variant of the math.</li>
+  <li><strong>Context</strong> — the account: holds the strategy, delegates in <code>add_interest</code> / fee calculation, exposes a setter so a client can swap at runtime.</li>
+</ul>
+<pre><code>from abc import ABC, abstractmethod
+
+class InterestStrategy(ABC):
+    @abstractmethod
+    def calculate(self, balance: float) -&gt; float:
+        """Return interest (or return) to deposit, given current balance."""
+
+
+class FixedRateInterest(InterestStrategy):
+    def __init__(self, rate: float):
+        self.rate = rate
+
+    def calculate(self, balance: float) -&gt; float:
+        return balance * self.rate
+
+
+class PromotionalInterest(InterestStrategy):
+    def __init__(self, rate: float, boost: float):
+        self.rate = rate
+        self.boost = boost
+
+    def calculate(self, balance: float) -&gt; float:
+        return balance * self.rate + self.boost
+
+
+class SavingsAccount(BankAccount, InterestBearing):
+    def __init__(self, owner, balance=0, interest: InterestStrategy | None = None, notifier=None):
+        super().__init__(owner, balance, notifier=notifier)
+        self.interest = interest or FixedRateInterest(0.02)
+
+    def add_interest(self):
+        earned = self.interest.calculate(self.balance)
+        self.deposit(Money(earned, "USD"))
+
+    def set_interest_strategy(self, strategy: InterestStrategy) -&gt; None:
+        self.interest = strategy
+</code></pre>
+<p>
+The context is not responsible for <em>choosing</em> the algorithm — the client is. That is why a factory payload can still pick <code>"interest": "promo"</code> while <code>add_interest</code> stays a one-liner. Factory builds the graph; Strategy is the plug that graph holds.
+</p>
+
+<div class="callout">
+  <div class="callout-title">Interview: Factory vs Strategy</div>
+  <p>
+  <strong>Factory</strong> (Day 13): creational — “give me the right <em>object</em>.” <strong>Strategy</strong>: behavioral — “this object should do the same job a <em>different way</em>.” You often use both: the factory constructs a <code>SavingsAccount</code> and injects a <code>PromotionalInterest</code> strategy. Do not say they are the same pattern with different names.
+  </p>
+</div>
+
+<h2>2. Python-idiomatic Strategy: functions first</h2>
+<p>
+<a href="https://refactoring.guru/design-patterns/strategy" target="_blank" rel="noopener">Refactoring.Guru</a> notes that languages with first-class functions can implement strategies as functions instead of extra classes. You already did this in <code>UserService(logger: Callable)</code> with <code>console_logger</code> / <code>file_logger</code>.
+</p>
+<p>
+<a href="https://realpython.com/python-callable-instances/" target="_blank" rel="noopener">Real Python</a> shows a middle path: strategy <em>classes</em> that implement <code>__call__</code>, so the context can treat them like functions while they still hold state (a rate, a boost, a fee cap).
+</p>
+<pre><code>from typing import Callable
+
+InterestFn = Callable[[float], float]
+
+def fixed_rate(rate: float) -&gt; InterestFn:
+    def calculate(balance: float) -&gt; float:
+        return balance * rate
+    return calculate
+
+class SavingsAccount(BankAccount, InterestBearing):
+    def __init__(self, owner, balance=0, interest: InterestFn | None = None, notifier=None):
+        super().__init__(owner, balance, notifier=notifier)
+        self.interest = interest or fixed_rate(0.02)
+
+    def add_interest(self):
+        self.deposit(Money(self.interest(self.balance), "USD"))
+</code></pre>
+<p>
+<strong>Rule of thumb:</strong> no extra state → a function. Config that lives across calls (rate, boost, remaining free withdrawals) → a class or a closure. A public plugin contract you want Python to enforce at import time → an ABC, as in <a href="0008-abstract-base-classes.html">Day 8</a>. Interviews often want the ABC drawing; production Python often wants the function.
+</p>
+
+<h2>3. Fees: same pattern, different family</h2>
+<p>
+Do not smash interest and fees into one “Policy” god-strategy. They are two families. A checking account can keep a <code>FeeStrategy</code> used only in <code>withdraw</code>:
+</p>
+<pre><code>class FeeStrategy(ABC):
+    @abstractmethod
+    def fee_for(self, amount: float) -&gt; float:
+        ...
+
+class FlatFee(FeeStrategy):
+    def __init__(self, amount: float):
+        self.amount = amount
+    def fee_for(self, amount: float) -&gt; float:
+        return self.amount
+
+class PercentageFee(FeeStrategy):
+    def __init__(self, pct: float):
+        self.pct = pct
+    def fee_for(self, amount: float) -&gt; float:
+        return amount * self.pct
+
+class NoFee(FeeStrategy):
+    def fee_for(self, amount: float) -&gt; float:
+        return 0.0
+</code></pre>
+<p>
+Then <code>CheckingAccount.withdraw</code> computes <code>fee = self.fee.fee_for(money.amount)</code> instead of always using <code>self.transaction_fee</code>. Waiving fees for a month is <code>account.set_fee_strategy(NoFee())</code> — OCP without a <code>FeeFreeCheckingAccount</code> subclass.
+</p>
+
+<h2>Quick check</h2>
+<p>Answer from memory before moving on. Options are matched in length so the longest line is not a hint.</p>
+<div data-quiz>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">1. What problem does Strategy exist to solve?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">swap one algorithm for another at runtime</button>
+      <button class="quiz-opt" data-key="b">hide all constructors from every client module</button>
+      <button class="quiz-opt" data-key="c">force unused dummy methods onto every subclass</button>
+      <button class="quiz-opt" data-key="d">merge several classes into one shared module</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — the context delegates to a collaborator you can replace without a new subclass." data-wrong="Not quite. Strategy is about interchangeable algorithms inside an existing object, not about construction or fat inheritance."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">2. How do Factory and Strategy differ?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">factory creates objects while strategy swaps algorithms</button>
+      <button class="quiz-opt" data-key="b">factory swaps algorithms while strategy creates objects</button>
+      <button class="quiz-opt" data-key="c">factory locks methods while strategy copies all classes</button>
+      <button class="quiz-opt" data-key="d">factory deletes classes while strategy stores only strings</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — creational vs behavioral. A factory may inject a strategy, but they solve different problems." data-wrong="Not quite. Factory is which object to build; Strategy is which algorithm that object should run."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">3. When is a plain function enough as a strategy?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">use a plain function when the algorithm holds no extra state</button>
+      <button class="quiz-opt" data-key="b">use a class object when the algorithm holds no extra state</button>
+      <button class="quiz-opt" data-key="c">use a plain function when the factory must build new types</button>
+      <button class="quiz-opt" data-key="d">use a class object when the factory must build new types</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — Python’s first-class functions are strategies. Reach for a class when you need stored config (rate, remaining free withdrawals)." data-wrong="Not quite. Stateless variants are functions; state or a hard contract is when classes/ABCs earn their keep."></p>
+  </div>
+
+</div>
+
+<h2>Primary sources</h2>
+<p>
+Read <a href="https://refactoring.guru/design-patterns/strategy" target="_blank" rel="noopener">Refactoring.Guru — Strategy</a> (intent, runtime swap, Factory/Template Method/State contrasts). Then read the Python-shaped version in <a href="https://realpython.com/python-callable-instances/" target="_blank" rel="noopener">Real Python — Python’s <code>__call__()</code> Method</a> (section “Implementing the Strategy Design Pattern”). Optional: the runnable sample at <a href="https://refactoring.guru/design-patterns/strategy/python/example" target="_blank" rel="noopener">Strategy in Python</a>.
+</p>
+
+<h2>Today's project</h2>
+<div class="project-brief">
+  <h3>Implement: Interest and fee strategies</h3>
+  <p>Keep account <em>types</em> (savings vs checking) as domain roles. Move <em>formulas</em> into strategy objects (or callables) you can inject and replace.</p>
+  <ul class="checklist">
+    <li>Add <code>projects/Strategies.py</code> with an <code>InterestStrategy</code> ABC and at least three concretes (e.g. fixed rate, promotional boost, zero / no-op). Mirror that with a <code>FeeStrategy</code> ABC and at least two concretes (flat vs percentage or no-fee).</li>
+    <li>Refactor <code>SavingsAccount</code> / <code>InvestmentAccount</code> / <code>VipAccount</code> so <code>add_interest</code> delegates to an injected interest strategy instead of hardcoding the formula. VIP boost belongs in a strategy, not a subclass override if the only difference is the math.</li>
+    <li>Refactor <code>CheckingAccount.withdraw</code> to ask a fee strategy for the fee amount. Default can still be today’s flat $1.50.</li>
+    <li>Demonstrate a <strong>runtime swap</strong>: create an account, apply interest, replace the strategy (promo weekend), apply interest again, print both results.</li>
+    <li>Optional wiring: extend <code>AccountFactory.create_from_dict</code> so a payload can name an interest or fee strategy (same idea as notifier keys).</li>
+  </ul>
+  <p><strong>Stretch:</strong> Implement one interest family as first-class functions (or <code>__call__</code> objects) and keep the other as an ABC — then write two sentences you could say in an interview about when you pick each shape.</p>
+</div>
+
+<p class="ask-agent">
+  <strong>Stuck, or want your code reviewed?</strong> After the runtime swap demo, explain out loud: “Factory vs Strategy” and “why not another subclass.” Ask follow-up questions here — that is the job. Day 15 is Observer.
+</p>
+
+<footer class="lesson-nav">
+  <a href="0013-design-pattern-factory.html">&larr; Day 13: Factory</a>
+  <a href="0015-design-pattern-observer.html">Next: Day 15 — Observer &rarr;</a>
+</footer>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

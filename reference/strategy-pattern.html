@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Reference — Strategy Pattern</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<p class="kicker">Python OOP · Quick reference</p>
+<h1>Strategy Pattern</h1>
+<p class="lede">A family of algorithms, each in its own object (or function), interchangeable at runtime. The context delegates; the client chooses.</p>
+
+<h2>Parts</h2>
+<table>
+  <thead>
+    <tr><th>Role</th><th>Job</th><th>In the bank</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Strategy</td>
+      <td>Shared interface for one algorithm</td>
+      <td><code>InterestStrategy.calculate(balance)</code></td>
+    </tr>
+    <tr>
+      <td>Concrete strategy</td>
+      <td>One variant of that algorithm</td>
+      <td><code>FixedRate</code>, <code>PromotionalRate</code></td>
+    </tr>
+    <tr>
+      <td>Context</td>
+      <td>Holds a strategy and delegates work</td>
+      <td><code>SavingsAccount.add_interest()</code></td>
+    </tr>
+    <tr>
+      <td>Client</td>
+      <td>Picks and (optionally) swaps the strategy</td>
+      <td>Factory payload, CLI, promo job</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>When to reach for it</h2>
+<ul>
+  <li>Same job, several ways to do it (interest, fees, routing, sorting).</li>
+  <li>You need to <strong>swap at runtime</strong> — not only at class-definition time.</li>
+  <li>A growing <code>if/elif</code> on “mode” or “type” inside one method.</li>
+  <li>Subclasses that differ <em>only</em> in one algorithm (inheritance explosion).</li>
+</ul>
+
+<h2>Python shapes (pick the smallest that fits)</h2>
+<pre><code># 1. Stateless: a function is a strategy
+def fixed_rate(balance: float, rate: float = 0.02) -&gt; float:
+    return balance * rate
+
+account.interest_fn = fixed_rate
+
+# 2. Stateful: a callable object
+class PromotionalRate:
+    def __init__(self, rate: float, boost: float):
+        self.rate, self.boost = rate, boost
+    def __call__(self, balance: float) -&gt; float:
+        return balance * self.rate + self.boost
+
+# 3. Contract-heavy: ABC (teams, plugins, interviews)
+class InterestStrategy(ABC):
+    @abstractmethod
+    def calculate(self, balance: float) -&gt; float: ...
+</code></pre>
+
+<h2>Not the same as</h2>
+<table>
+  <thead>
+    <tr><th>Pattern</th><th>Intent</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Factory</td>
+      <td>Create the right <em>object</em>. Strategy: pick the right <em>algorithm</em>.</td>
+    </tr>
+    <tr>
+      <td>Template Method</td>
+      <td>Vary a step via <em>inheritance</em> (static). Strategy varies via <em>composition</em> (runtime).</td>
+    </tr>
+    <tr>
+      <td>State</td>
+      <td>Strategies are independent. States may know each other and switch the context.</td>
+    </tr>
+    <tr>
+      <td>Notifier (DIP)</td>
+      <td>Same structure (inject + delegate). Strategy names the <em>algorithm family</em>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+Sources: <a href="https://refactoring.guru/design-patterns/strategy">Refactoring.Guru — Strategy</a>,
+<a href="https://realpython.com/python-callable-instances/">Real Python — callable instances</a>.
+Lesson: <a href="../lessons/0014-design-pattern-strategy.html">Day 14</a>.
+</p>
+
+</body>
+</html>

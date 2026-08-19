@@ -1,25 +1,30 @@
 from abc import ABC, abstractmethod
-from BankingExceptions import CurrencyMismatchError, InsufficientFundsError, InvalidAmountError, OverdraftLimitError
+from BankingExceptions import (
+    CurrencyMismatchError,
+    InsufficientFundsError,
+    InvalidAmountError,
+    OverdraftLimitError,
+)
 from TransactionClass import Transaction
 from Interfaces import InterestBearing, Depositable, Withdrawable
 from Notifiers import Notifier, ConsoleNotifier, EmailNotifier, SMSNotifier
 from AccountFactory import AccountFactory
 from Money import Money
+
+
 class BankAccount(ABC):
     minimum_balance = 0
     bank_name = "Python National Bank"
-    account_count=0
+    account_count = 0
     total_deposited = 0
-    
 
     def __init__(self, owner, balance: Money, notifier: Notifier = None):
         self.owner = owner
         self.balance = balance
         self.transactions = []
         self.notifier = notifier if notifier is not None else ConsoleNotifier()
-        
+
         BankAccount.account_count += 1
-        
 
     @property
     def balance(self):
@@ -30,13 +35,14 @@ class BankAccount(ABC):
         amount = value.amount if isinstance(value, Money) else float(value)
         if amount < self.minimum_balance:
             raise ValueError("Balance cannot be negative")
-        self._balance = amount 
+        self._balance = amount
 
     @property
     def owner(self):
         return self._owner
+
     @owner.setter
-    def owner(self,name):
+    def owner(self, name):
         if not len(name):
             raise ValueError("Owner name cannot be empty")
         self._owner = name
@@ -47,47 +53,48 @@ class BankAccount(ABC):
         if self.is_valid_amount(money.amount):
             self.balance += money.amount
             BankAccount.total_deposited += money.amount
-            self.transactions.append(Transaction('DEPOSIT', money))
-            self.notifier.send(f"Deposited {money} into {self.owner}'s account. New balance: ${self.balance:.2f}")
+            self.transactions.append(Transaction("DEPOSIT", money))
+            self.notifier.send(
+                f"Deposited {money} into {self.owner}'s account. New balance: ${self.balance:.2f}"
+            )
 
     def withdraw(self, money: Money) -> None:
         if not isinstance(money, Money):
             raise TypeError(f"Expected Money instance, got {type(money).__name__}")
         if money.amount > self.balance:
             raise InsufficientFundsError(money.amount, self.balance)
-        
+
         if self.is_valid_amount(money.amount):
             self.balance -= money.amount
 
         self.transactions.append(Transaction("WITHDRAWAL", money))
-        self.notifier.send(f"Withdrew {money} from {self.owner}'s account. New balance: ${self.balance:.2f}")
+        self.notifier.send(
+            f"Withdrew {money} from {self.owner}'s account. New balance: ${self.balance:.2f}"
+        )
 
     @abstractmethod
     def account_type(self):
-        return 'Savings'        
-          
-        
-    
+        return "Savings"
+
     @classmethod
-    def from_string(cls,data_string):
-        owner,balance = data_string.split(",")
-        return cls(owner,float(balance))
+    def from_string(cls, data_string):
+        owner, balance = data_string.split(",")
+        return cls(owner, float(balance))
 
     @staticmethod
-    def is_valid_amount(amount:float):
-        if(amount > 0):
+    def is_valid_amount(amount: float):
+        if amount > 0:
             return True
         else:
-           raise InvalidAmountError()
-
-           
+            raise InvalidAmountError()
 
     """Four dunder methods Example"""
+
     def __str__(self):
         return f"{self.owner}'s {self.account_type()} account: ${self.balance:.2f}"
 
     def __repr__(self):
-        return f"BankAccount(owner={self.owner!r}, balance={self.balance!r})"   
+        return f"BankAccount(owner={self.owner!r}, balance={self.balance!r})"
 
     def __eq__(self, other):
         if not isinstance(other, BankAccount):
@@ -95,37 +102,52 @@ class BankAccount(ABC):
         return self.owner == other.owner and self.balance == other.balance
 
     def __lt__(self, other):
-        if not isinstance(other,BankAccount):
+        if not isinstance(other, BankAccount):
             return NotImplemented
         return self.balance < other.balance
+
 
 """
  Savings account class 
 """
 
+
+from Strategies import FixedRateInterest, InterestStrategy, PromotionalInterest
+
+
 @AccountFactory.register("savings")
 class SavingsAccount(BankAccount, InterestBearing):
-    def __init__(self, owner, balance=0, interest_rate=0.02, notifier: Notifier = None):
+    def __init__(
+        self,
+        owner,
+        balance=0,
+        interest: InterestStrategy | None = None,
+        notifier: Notifier = None,
+    ):
         super().__init__(owner, balance, notifier=notifier)
-        self.interest_rate = interest_rate
+        self.interest = interest if interest is not None else FixedRateInterest(0.02)
 
     def deposit(self, money: Money) -> None:
         if not isinstance(money, Money):
             raise TypeError(f"Expected Money instance, got {type(money).__name__}")
         super().deposit(money)
-        if(self.balance >= 10000):
-            self.notifier.send(f"Congratulations {self.owner}, you are a platinum member")    
+        if self.balance >= 10000:
+            self.notifier.send(
+                f"Congratulations {self.owner}, you are a platinum member"
+            )
 
     def add_interest(self):
-        interest = self.balance * self.interest_rate
-        self.deposit(Money(interest, "USD"))
+        earned = self.interest.calculate(self.balance)
+        return self.deposit(Money(earned, "USD"))
 
     def account_type(self):
-       return 'Savings'
+        return "Savings"
+
 
 """
  Investment account class (Implements InterestBearing)
 """
+
 
 @AccountFactory.register("investment")
 class InvestmentAccount(BankAccount, InterestBearing):
@@ -138,83 +160,97 @@ class InvestmentAccount(BankAccount, InterestBearing):
         self.deposit(Money(returns, "USD"))
 
     def account_type(self):
-        return 'Investment'
+        return "Investment"
+
 
 """
  Checking account class 
-"""        
+"""
+
 
 @AccountFactory.register("checking")
 class CheckingAccount(BankAccount):
     bank_name = "Python National Bank branch-1"
 
-    def __init__(self, owner, balance=0, transaction_fee = 1.5, overdraft_value=300, notifier: Notifier = None):
+    def __init__(
+        self,
+        owner,
+        balance=0,
+        transaction_fee=1.5,
+        overdraft_value=300,
+        notifier: Notifier = None,
+    ):
         super().__init__(owner, balance, notifier=notifier)
-        self.transaction_fee= transaction_fee
+        self.transaction_fee = transaction_fee
         self.minimum_balance = -overdraft_value
 
-    def withdraw(self, money: Money) -> None:                    # REPLACE override — different rule entirely
+    def withdraw(
+        self, money: Money
+    ) -> None:  # REPLACE override — different rule entirely
         if not isinstance(money, Money):
             raise TypeError(f"Expected Money instance, got {type(money).__name__}")
         if self.is_valid_amount(money.amount):
             total = money.amount + self.transaction_fee
             fee = Money(self.transaction_fee, money.currency)
             if self.balance - total < self.minimum_balance:
-                raise OverdraftLimitError(total,self.balance,self.minimum_balance)
+                raise OverdraftLimitError(total, self.balance, self.minimum_balance)
             self.balance -= total
 
-            self.transactions.append(
-            Transaction("WITHDRAWAL", money)
-        )
+            self.transactions.append(Transaction("WITHDRAWAL", money))
 
-            self.transactions.append(
-             Transaction("FEE", fee)
-        )
-            self.notifier.send(f"Withdrew {money} (fee: {fee}) from {self.owner}'s account. New balance: ${self.balance:.2f}")
+            self.transactions.append(Transaction("FEE", fee))
+            self.notifier.send(
+                f"Withdrew {money} (fee: {fee}) from {self.owner}'s account. New balance: ${self.balance:.2f}"
+            )
 
     def account_type(self):
-       return 'Checking'     
+        return "Checking"
 
 
 class Customer:
-    def __init__(self,name,email):
-        self.name=name
-        self.email=email
-        self.accounts=[]
+    def __init__(self, name, email):
+        self.name = name
+        self.email = email
+        self.accounts = []
 
-    def open_account(self,account):
+    def open_account(self, account):
         self.accounts.append(account)
 
     def total_balance(self):
-        return sum(account.balance for account in self.accounts)        
+        return sum(account.balance for account in self.accounts)
+
 
 class Bank:
-    def __init__(self,name):
+    def __init__(self, name):
         self.name = name
-        self.customers=[]
+        self.customers = []
 
-    def add_customers(self,customer):
+    def add_customers(self, customer):
         self.customers.append(customer)
+
     def total_assets(self):
         return sum(customer.total_balance() for customer in self.customers)
 
-    def find_customer(self,name):
+    def find_customer(self, name):
         for customer in self.customers:
             if customer.name.lower() == name.lower():
                 return customer
-        return None         
+        return None
 
 
 import csv
 import io
 
+
 class StatementPrinter:
-    
+
     @staticmethod
-    def to_text(account:BankAccount) -> str:
-        lines = [f"=== Statment:{account.owner}==="] 
+    def to_text(account: BankAccount) -> str:
+        lines = [f"=== Statment:{account.owner}==="]
         for tx in account.transactions:
-            lines.append(f"{tx.timestamp:%Y-%m-%d %H:%M} | {tx.tx_type:10} | {tx.money}")    
+            lines.append(
+                f"{tx.timestamp:%Y-%m-%d %H:%M} | {tx.tx_type:10} | {tx.money}"
+            )
         lines.append(f"Final Balance: ${account.balance:.2f}")
         return "\n".join(lines)
 
@@ -227,29 +263,33 @@ class StatementPrinter:
         writer.writerow(["Timestamp", "Type", "Amount", "Currency"])
 
         for tx in account.transactions:
-            writer.writerow([
-                tx.timestamp.strftime("%Y-%m-%d %H:%M"),
-                tx.tx_type,
-                tx.money.amount,
-                tx.money.currency
-            ])
+            writer.writerow(
+                [
+                    tx.timestamp.strftime("%Y-%m-%d %H:%M"),
+                    tx.tx_type,
+                    tx.money.amount,
+                    tx.money.currency,
+                ]
+            )
 
         writer.writerow([])
         writer.writerow(["Final Balance", account.balance])
 
-        return output.getvalue()    
-
+        return output.getvalue()
 
 
 @AccountFactory.register("vip")
 class VipAccount(SavingsAccount):
-     def __init__(self, owner, balance, interest_boost, notifier: Notifier = None):
+    def __init__(
+        self, owner, balance, interest: InterestStrategy, notifier: Notifier = None
+    ):
         super().__init__(owner, balance, notifier=notifier)
-        self.interest_boost = interest_boost
+        self.interest = interest
 
-     def add_interest(self):
-        interest = self.balance * self.interest_rate+self.interest_boost 
-        self.deposit(Money(interest,"USD"))
+    def add_interest(self):
+        earned = self.interest.calculate(self.balance, self.interest.boost)
+        self.deposit(Money(earned, "USD"))
+
 
 account = CheckingAccount("Iftesam", 5000, overdraft_value=300)
 account.deposit(Money(100, "USD"))
@@ -258,11 +298,10 @@ print(account)
 print(StatementPrinter.to_text(account))
 print(StatementPrinter.generate_csv_statement(account))
 
-account2 = VipAccount('Bill', 10000, interest_boost=5)
+account2 = VipAccount("Bill", 10000, interest=PromotionalInterest(0.05, 10))
 
 account2.deposit(Money(250, "USD"))
 account2.add_interest()
-print('Hello World', account2)
 
 
 m1 = Money(100, "USD")
@@ -274,9 +313,10 @@ depositAccount = SavingsAccount("iftesam2", 4000)
 depositAccount.deposit(m1)
 
 print(m1 - m2)
-print(m1 - m2)        # $150.00 USD
-print(m1 > m2)        # True
+print(m1 - m2)  # $150.00 USD
+print(m1 > m2)  # True
 # print(m1 + m3)      # Raises ValueError: Cannot add USD and EUR
+
 
 def apply_all_interest(accounts: list[BankAccount]) -> None:
     """
@@ -288,13 +328,17 @@ def apply_all_interest(accounts: list[BankAccount]) -> None:
     for acc in accounts:
         if isinstance(acc, InterestBearing):
             acc.add_interest()
-            print(f"[ISP - Interest Applied] {acc.owner}'s {acc.account_type()} account: new balance is ${acc.balance:.2f}")
+            print(
+                f"[ISP - Interest Applied] {acc.owner}'s {acc.account_type()} account: new balance is ${acc.balance:.2f}"
+            )
         else:
-            print(f"[ISP - Skipped] {acc.owner}'s {acc.account_type()} account is not InterestBearing.")
+            print(
+                f"[ISP - Skipped] {acc.owner}'s {acc.account_type()} account is not InterestBearing."
+            )
 
 
 # Demonstration of Interface Segregation
-savings = SavingsAccount("Alice", 2000, interest_rate=0.03)
+savings = SavingsAccount("Alice", 2000, interest=FixedRateInterest(0.03))
 checking = CheckingAccount("Bob", 1500)
 investment = InvestmentAccount("Charlie", 10000, return_rate=0.08)
 
@@ -328,36 +372,39 @@ def process_payroll(accounts: list[BankAccount], bonus: Money) -> None:
 payroll_accounts = [
     SavingsAccount("Grace", 1000),
     CheckingAccount("Henry", 800),
-    VipAccount("Ivy", 5000, interest_boost=10),
+    VipAccount("Ivy", 5000, interest=PromotionalInterest(0.05, 10)),
     InvestmentAccount("Jack", 12000),
 ]
 
-process_payroll(payroll_accounts,bonus=Money(250,"USD"))
-
+process_payroll(payroll_accounts, bonus=Money(250, "USD"))
 
 
 from typing import Callable
 
+
 class UserService:
-    def __init__(self,logger:Callable[[str],None]):
-        self.logger=logger  #self.logger is console_logger
+    def __init__(self, logger: Callable[[str], None]):
+        self.logger = logger  # self.logger is console_logger
 
     def create_user(self):
-        self.logger('user created')   #here calling console_logger
-                                      #parameter being passed to logger is 'user created'
+        self.logger("user created")  # here calling console_logger
+        # parameter being passed to logger is 'user created'
+
     def delete_user(self):
-        self.logger('user deleted')   #here calling console_logger
-                                      #parameter being passed to logger is 'user deleted'
+        self.logger("user deleted")  # here calling console_logger
+        # parameter being passed to logger is 'user deleted'
 
-def console_logger(message:str):
-    print(f'LOG:{message}')
 
-def file_logger(message:str):
+def console_logger(message: str):
+    print(f"LOG:{message}")
+
+
+def file_logger(message: str):
     with open("log.txt", "a") as f:
-        f.write(message + "\n")    
+        f.write(message + "\n")
 
 
-user1 = UserService(console_logger)            
+user1 = UserService(console_logger)
 user1.create_user()
 user1.delete_user()
 
@@ -368,9 +415,15 @@ print("\n--- Factory Pattern Demonstration (Lesson 13) ---")
 print("Registered Account Types in Factory:", AccountFactory.get_registered_types())
 
 # 1. Creating via AccountFactory.create()
-fact_savings = AccountFactory.create("savings", "Maya", Money(3000, "USD"), interest_rate=0.04)
-fact_checking = AccountFactory.create("checking", "Liam", Money(1500, "USD"), overdraft_value=400)
-fact_vip = AccountFactory.create("vip", "Sophia", Money(8000, "USD"), interest_boost=8)
+fact_savings = AccountFactory.create(
+    "savings", "Maya", Money(3000, "USD"), interest=FixedRateInterest(0.04)
+)
+fact_checking = AccountFactory.create(
+    "checking", "Liam", Money(1500, "USD"), overdraft_value=400
+)
+fact_vip = AccountFactory.create(
+    "vip", "Sophia", Money(8000, "USD"), interest=PromotionalInterest(0.05, 8)
+)
 
 print(f"Factory created: {fact_savings}")
 print(f"Factory created: {fact_checking}")
@@ -382,9 +435,9 @@ payload_email_account = {
     "owner": "Olivia",
     "balance": 4500.0,
     "currency": "USD",
-    "interest_rate": 0.05,
+    "interest": FixedRateInterest(0.05),
     "notifier": "email",
-    "email": "olivia@example.com"
+    "email": "olivia@example.com",
 }
 
 payload_sms_account = {
@@ -394,14 +447,16 @@ payload_sms_account = {
     "currency": "USD",
     "overdraft_value": 500,
     "notifier": "sms",
-    "phone": "+1-800-555-0144"
+    "phone": "+1-800-555-0144",
 }
 
-dict_acc1 = AccountFactory.create_from_dict(payload_email_account)
-dict_acc2 = AccountFactory.create_from_dict(payload_sms_account)
+dict_savings_account = AccountFactory.create_from_dict(payload_email_account)
+dict_checking_account = AccountFactory.create_from_dict(payload_sms_account)
 
 print("\n--- Operations on Dict-Configured Accounts ---")
-dict_acc1.deposit(Money(500, "USD"))
-dict_acc2.withdraw(Money(300, "USD"))
+dict_savings_account.deposit(Money(500, "USD"))
+dict_checking_account.withdraw(Money(300, "USD"))
 
-print(AccountFactory._registry)
+dict_savings_account.add_interest()
+
+# print(AccountFactory._registry)

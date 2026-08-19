@@ -23,7 +23,7 @@ Spine project: a bank-account system that grows in sophistication day over day (
 11. SOLID: SRP & OCP — refactor the spine project
 12. SOLID: LSP, ISP, DIP — refactor further
 13. Design pattern: Factory
-14. Design pattern: Strategy
+14. Design pattern: Strategy — interest/fee algorithms extracted from account subclasses; Notifiers already were Strategy-shaped DIP (name it on Day 14)
 15. Design pattern: Observer
 16. Testing OOP code — `pytest` with classes, mocking
 17. Capstone — multi-file system tying it together, ready for GitHub
