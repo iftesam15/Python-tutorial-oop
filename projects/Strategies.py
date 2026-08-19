@@ -22,3 +22,33 @@ class PromotionalInterest(InterestStrategy):
 
     def calculate(self, balance, boost):
         return balance * self.rate + self.boost
+
+
+class FeeStrategy(ABC):
+    @abstractmethod
+    def calculate(self, balance: float) -> float:
+        """Return fee to charge,given current balance"""
+
+
+class FixedFee(FeeStrategy):
+    def __init__(self, fee: float):
+        self.fee = fee
+
+    def calculate(self, balance: float):
+        return self.fee
+
+
+class PercentageFee(FeeStrategy):
+    def __init__(self, percentage: float):
+        self.percentage = percentage
+
+    def calculate(self, balance: float):
+        return balance * self.percentage
+
+
+class TransactionFee(FeeStrategy):
+    def __init__(self, fee: float):
+        self.fee = fee
+
+    def calculate(self, balance: float):
+        return self.fee
