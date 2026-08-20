@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 15 — Design Pattern: Observer</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<p class="kicker">Python OOP · Day 15 of the project path</p>
+<h1>Design Pattern: Observer — Many Listeners, One Event</h1>
+<p class="lede">Strategy answered <em>how this account does one job</em>. Observer answers a different interview question: <em>who should find out that something happened, and can they opt in or out without editing the account?</em> Today we replace the single <code>self.notifier</code> with a subscription list.</p>
+
+<h2>The core idea</h2>
+<p>
+<a href="https://refactoring.guru/design-patterns/observer" target="_blank" rel="noopener">Observer</a> (also Event-Subscriber, Listener) is a <strong>behavioral</strong> pattern: when a publisher’s state changes, it notifies every current subscriber. The set of subscribers is a list the client mutates at runtime — attach, detach, notify.
+</p>
+<p>
+<a href="https://refactoring.guru/design-patterns/observer" target="_blank" rel="noopener">Refactoring.Guru</a> frames the pain as a store vs its customers: either customers poll all day, or the store spams everyone. The fix is a subscription: the publisher keeps references and calls one method on each when an event fires. New subscriber classes do not require edits to the publisher — that is <a href="0011-solid-srp-ocp.html">OCP</a>.
+</p>
+
+<h3>The pain in our bank</h3>
+<p>
+<code>BankAccount</code> holds <em>one</em> <code>self.notifier</code> and calls <code>self.notifier.send(...)</code> from <code>deposit</code> and <code>withdraw</code>. <code>SavingsAccount.deposit</code> then hardcodes a platinum congratulations on the same notifier. Want console <em>and</em> email? A fraud monitor? A test spy? Today that means editing those methods or inventing a composite notifier — the publisher is coupled to a single, unknown-in-advance reaction.
+</p>
+<p>
+<a href="0014-design-pattern-strategy.html">Day 14</a> already named the notifier as Strategy-shaped DIP: <em>how</em> to send. That is the wrong axis for “also log this” or “stop texting me.” Observer is <em>who</em> listens. Keep the <code>Notifier</code> classes; wrap them as subscribers.
+</p>
+
+<h2>1. Publisher, subscriber, event manager</h2>
+<p>
+Four moving parts (<a href="../reference/observer-pattern.html">cheat sheet</a>). Because <code>BankAccount</code> already sits in an inheritance tree, do <em>not</em> force it to subclass a <code>Subject</code> ABC. <a href="https://refactoring.guru/design-patterns/observer" target="_blank" rel="noopener">Refactoring.Guru</a>’s editor example patches subscription in with <strong>composition</strong>: a small <code>EventManager</code> the publisher holds.
+</p>
+<pre><code>class AccountEvent:
+    def __init__(self, kind: str, account, amount: float | None = None, message: str = ""):
+        self.kind = kind
+        self.account = account
+        self.amount = amount
+        self.message = message
+
+
+class Observer(ABC):
+    @abstractmethod
+    def update(self, event: AccountEvent) -&gt; None:
+        """React to one published event. Do not return a value the account needs."""
+
+
+class EventManager:
+    def __init__(self):
+        self._observers: dict[str, list[Observer]] = {}
+
+    def subscribe(self, kind: str, observer: Observer) -&gt; None:
+        self._observers.setdefault(kind, []).append(observer)
+
+    def unsubscribe(self, kind: str, observer: Observer) -&gt; None:
+        listeners = self._observers.get(kind, [])
+        if observer in listeners:
+            listeners.remove(observer)
+
+    def notify(self, event: AccountEvent) -&gt; None:
+        for observer in list(self._observers.get(event.kind, [])):
+            observer.update(event)
+
+
+class BankAccount(ABC):
+    def __init__(self, owner, balance: Money, notifier: Notifier | None = None):
+        ...
+        self.events = EventManager()
+        sink = NotifierObserver(notifier or ConsoleNotifier())
+        self.events.subscribe("deposit", sink)
+        self.events.subscribe("withdraw", sink)
+
+    def deposit(self, money: Money) -&gt; None:
+        ...  # mutate balance, append Transaction
+        self.events.notify(AccountEvent(
+            "deposit", self, money.amount,
+            f"Deposited {money} into {self.owner}'s account. New balance: ${self.balance:.2f}",
+        ))
+</code></pre>
+<p>
+The publisher does not know <em>who</em> is on the list — only that each object has <code>update</code>. A client (or the factory) can subscribe a second observer later. Platinum is not a print inside <code>SavingsAccount.deposit</code>; it is a subscriber that watches <code>"deposit"</code> and checks the balance.
+</p>
+
+<div class="callout">
+  <div class="callout-title">Instance list, copy on notify</div>
+  <p>
+  Put <code>_observers</code> on the <em>instance</em>. A class-level <code>_observers = []</code> (as in some textbook samples) is one shared list — every account would notify every other account’s listeners (<a href="0002-class-vs-instance-attributes.html">Day 2</a>). And loop over <code>list(...)</code> so a subscriber can unsubscribe mid-notify without skipping the next listener.
+  </p>
+</div>
+
+<h2>2. Strategy vs Observer (say this out loud)</h2>
+<p>
+Both inject a collaborator. Interviews mix them up. The test is whether the caller <em>needs a result</em>.
+</p>
+<table>
+  <thead>
+    <tr><th></th><th>Strategy</th><th>Observer</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>How many?</td>
+      <td>One (the current algorithm)</td>
+      <td>Zero, one, or many</td>
+    </tr>
+    <tr>
+      <td>Return value?</td>
+      <td>Yes — interest, fee</td>
+      <td>No — fire and forget</td>
+    </tr>
+    <tr>
+      <td>Swap means?</td>
+      <td>Different <em>how</em></td>
+      <td>Different <em>who</em></td>
+    </tr>
+    <tr>
+      <td>In the bank</td>
+      <td><code>self.interest.calculate(balance)</code></td>
+      <td><code>self.events.notify(event)</code></td>
+    </tr>
+  </tbody>
+</table>
+<p>
+<code>Notifier.send</code> was always a side effect. That is why wrapping it as an observer is the honest model; keeping it as the only collaborator pretended there could be only one who.
+</p>
+
+<h2>3. Python-idiomatic Observer: functions and logging</h2>
+<p>
+<a href="https://refactoring.guru/design-patterns/observer" target="_blank" rel="noopener">Refactoring.Guru</a> notes that languages with first-class functions can replace the subscriber hierarchy with callables. Same rule as Strategy: no extra state → a function; config that lives across events (threshold, destination email) → a class.
+</p>
+<pre><code>account.events.subscribe("withdraw", lambda e: print("audit:", e.amount))
+</code></pre>
+<p>
+You already use Observer in the stdlib. A <a href="https://docs.python.org/3/library/logging.html#handler-objects" target="_blank" rel="noopener"><code>logging.Logger</code></a> is a publisher; each <code>Handler</code> is a subscriber. <code>logger.addHandler</code> / <code>removeHandler</code> is subscribe / unsubscribe. <code>logger.info(...)</code> is notify.
+</p>
+
+<h2>Quick check</h2>
+<p>Answer from memory before moving on. Options are matched in length so the longest line is not a hint.</p>
+<div data-quiz>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">1. What problem does Observer exist to solve?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">notify many listeners of one object's events</button>
+      <button class="quiz-opt" data-key="b">choose this algorithm of one object's events</button>
+      <button class="quiz-opt" data-key="c">create some factories of one object's events</button>
+      <button class="quiz-opt" data-key="d">remove some functions of one object's events</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — one-to-many subscription. The publisher notifies whoever is currently on the list." data-wrong="Not quite. Observer is who finds out that something happened, not how to compute or what class to build."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">2. How do Strategy and Observer differ?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">strategy needs a result; observer fires and forgets</button>
+      <button class="quiz-opt" data-key="b">observer needs a result; strategy fires and forgets</button>
+      <button class="quiz-opt" data-key="c">strategy needs a listener; observer fires a factory</button>
+      <button class="quiz-opt" data-key="d">observer needs a factory; strategy fires a listener</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — Strategy is the current how (you use the return value). Observer is who cares (you ignore the return)." data-wrong="Not quite. If deposit needs a number back, that is Strategy. If deposit broadcasts that it happened, that is Observer."></p>
+  </div>
+
+  <div class="quiz-q" data-correct="a">
+    <p class="quiz-prompt">3. What happens if the subscriber list is a class attribute?</p>
+    <div class="quiz-opts">
+      <button class="quiz-opt" data-key="a">class-level lists are shared by every account instance</button>
+      <button class="quiz-opt" data-key="b">class-level lists are copied by every account instance</button>
+      <button class="quiz-opt" data-key="c">instance-level lists are shared by every account class</button>
+      <button class="quiz-opt" data-key="d">instance-level lists are copied by every account class</button>
+    </div>
+    <p class="quiz-feedback" data-right="Right — mutable defaults on the class leak across instances. Each account needs its own subscription list." data-wrong="Not quite. Remember Day 2: a list on the class is one object. Emma’s email listener would fire on Liam’s deposits."></p>
+  </div>
+
+</div>
+
+<h2>Primary sources</h2>
+<p>
+Read <a href="https://refactoring.guru/design-patterns/observer" target="_blank" rel="noopener">Refactoring.Guru — Observer</a> (subscription, EventManager composition, OCP). Skim the runnable sample at <a href="https://refactoring.guru/design-patterns/observer/python/example" target="_blank" rel="noopener">Observer in Python</a> — then spot the class-level <code>_observers = []</code> trap. Optional: <a href="https://docs.python.org/3/library/logging.html#handler-objects" target="_blank" rel="noopener">logging.Handler</a> as the stdlib’s Observer.
+</p>
+
+<h2>Today's project</h2>
+<div class="project-brief">
+  <h3>Implement: Account events and subscribers</h3>
+  <p>Keep <code>Notifier</code> as <em>how to send</em>. Move <em>who finds out</em> onto a subscription list you can attach and detach.</p>
+  <ul class="checklist">
+    <li>Add <code>projects/Observers.py</code> with <code>AccountEvent</code>, an <code>Observer</code> ABC (<code>update</code>), and an <code>EventManager</code> with <code>subscribe</code> / <code>unsubscribe</code> / <code>notify</code>. Store listeners on the instance; notify over a copy of the list.</li>
+    <li>Compose <code>EventManager</code> into <code>BankAccount</code>. After a successful deposit or withdraw, <code>notify</code> instead of calling <code>self.notifier.send</code> directly. Wrap the existing notifier as an observer so factory payloads still work.</li>
+    <li>Pull the platinum congratulations out of <code>SavingsAccount.deposit</code> into a subscriber that reacts to <code>"deposit"</code> when balance crosses $10,000.</li>
+    <li>Demonstrate <strong>runtime subscribe / unsubscribe</strong>: attach console + one other observer, deposit, detach one, deposit again — the detached observer stays silent.</li>
+  </ul>
+  <p><strong>Stretch:</strong> Add a <code>LowBalanceAlert</code> observer with a threshold, and write two sentences you could say in an interview: Strategy vs Observer, and why the subscriber list must not be a class attribute.</p>
+</div>
+
+<p class="ask-agent">
+  <strong>Stuck, or want your code reviewed?</strong> After the attach/detach demo, explain out loud: “Strategy vs Observer” and “why composition, not another subclass of BankAccount.” Ask follow-up questions here — that is the job. Day 16 is testing OOP code with pytest.
+</p>
+
+<footer class="lesson-nav">
+  <a href="0014-design-pattern-strategy.html">&larr; Day 14: Strategy</a>
+  <a href="0016-testing-oop.html">Next: Day 16 — Testing OOP &rarr;</a>
+</footer>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

@@ -30,6 +30,12 @@
   Runnable Python sample: context holds a strategy, setter replaces it, concrete strategies implement one method. Use for: comparing the bank’s interest/fee strategies against a minimal example.
 - [Python’s .__call__() Method: Creating Callable Instances — Real Python](https://realpython.com/python-callable-instances/)
   Shows Strategy via callable objects (JSON/YAML serializers) — the Pythonic middle ground between plain functions and ABC classes. Use for: Day 14 “functions vs classes vs __call__” choice.
+- [Observer — Refactoring.Guru](https://refactoring.guru/design-patterns/observer)
+  Canonical intent (subscription, one-to-many notify), EventManager-by-composition, OCP for new listeners, and contrasts with Mediator / Chain of Responsibility. Use for: Day 15 Observer lesson and “when would you use this?”
+- [Observer in Python — Refactoring.Guru](https://refactoring.guru/design-patterns/observer/python/example)
+  Runnable ABC sample with `attach` / `detach` / `notify`. Use for: comparing against the bank’s event manager — and as a caution that a class-level `_observers = []` is shared by every instance.
+- [logging — Handler Objects — Python docs](https://docs.python.org/3/library/logging.html#handler-objects)
+  Stdlib Observer: a `Logger` notifies every attached `Handler`. Use for: “you already use this pattern” — `addHandler` / `removeHandler` is subscribe / unsubscribe.
 
 ## Wisdom (Communities)
 

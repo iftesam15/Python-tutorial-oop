@@ -216,7 +216,9 @@ class CheckingAccount(BankAccount):
             raise TypeError(f"Expected Money instance, got {type(money).__name__}")
         if self.is_valid_amount(money.amount):
             total = money.amount + self.transaction_strategy.calculate(money.amount)
-            fee = Money(self.transaction_strategy.calculate(money.amount), money.currency)
+            fee = Money(
+                self.transaction_strategy.calculate(money.amount), money.currency
+            )
             if self.balance - total < self.minimum_balance:
                 raise OverdraftLimitError(total, self.balance, self.minimum_balance)
             self.balance -= total
@@ -461,12 +463,13 @@ print(f"Factory created: {fact_checking}")
 print(f"Factory created: {fact_vip}")
 
 # 2. Creating via AccountFactory.create_from_dict() with Dependency Injection
+# Strategy names are strings (same idea as notifier keys); the factory builds the objects.
 payload_email_account = {
     "type": "savings",
     "owner": "Olivia",
     "balance": 4500.0,
     "currency": "USD",
-    "interest": FixedRateInterest(0.05),
+    "interest": "fixed",
     "notifier": "email",
     "email": "olivia@example.com",
 }
@@ -476,7 +479,8 @@ payload_sms_account = {
     "owner": "Noah",
     "balance": 2200.0,
     "currency": "USD",
-    "transaction_strategy":PercentageFee(0.02),
+    "fee_strategy": "percentage",
+    "fee_percentage": 0.03,
     "overdraft_value": 500,
     "notifier": "sms",
     "phone": "+1-800-555-0144",
@@ -497,8 +501,12 @@ dict_savings_account.add_interest()
 print("\n--- Strategy Pattern: Runtime Strategy Swap (Lesson 14) ---")
 
 # 1. Create an account with a base fixed-rate strategy (e.g., 2% interest)
-promo_savings = SavingsAccount("Emma", Money(5000, "USD"), interest=FixedRateInterest(0.02))
-print(f"Created account: {promo_savings.owner}'s {promo_savings.account_type()} account with initial balance: ${promo_savings.balance:.2f}")
+promo_savings = SavingsAccount(
+    "Emma", Money(5000, "USD"), interest=FixedRateInterest(0.02)
+)
+print(
+    f"Created account: {promo_savings.owner}'s {promo_savings.account_type()} account with initial balance: ${promo_savings.balance:.2f}"
+)
 
 # 2. Apply standard interest and print result
 print("\n[Step 1] Applying standard interest (FixedRateInterest @ 2%):")
@@ -506,7 +514,9 @@ promo_savings.add_interest()
 print(f"Result 1 (Standard Interest): Balance is now ${promo_savings.balance:.2f}")
 
 # 3. Replace strategy at runtime (promo weekend: 5% interest + $50 bonus boost)
-print("\n[Step 2] Promo Weekend Activated! Swapping strategy at runtime to PromotionalInterest (5% + $50 boost)...")
+print(
+    "\n[Step 2] Promo Weekend Activated! Swapping strategy at runtime to PromotionalInterest (5% + $50 boost)..."
+)
 promo_savings.set_interest_strategy(PromotionalInterest(rate=0.05, boost=50.0))
 
 # 4. Apply interest again under the new strategy and print result

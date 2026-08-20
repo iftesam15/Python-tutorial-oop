@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Reference — Observer Pattern</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<p class="kicker">Python OOP · Quick reference</p>
+<h1>Observer Pattern</h1>
+<p class="lede">One-to-many subscription: a publisher notifies every current subscriber when something happens. Subscribers join and leave at runtime. Also called Event-Subscriber or Listener.</p>
+
+<h2>Parts</h2>
+<table>
+  <thead>
+    <tr><th>Role</th><th>Job</th><th>In the bank</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Publisher (subject)</td>
+      <td>Owns interesting state; notifies after a change</td>
+      <td><code>BankAccount.deposit</code> / <code>withdraw</code></td>
+    </tr>
+    <tr>
+      <td>Subscriber (observer)</td>
+      <td>One <code>update</code> (or a callable) the publisher understands</td>
+      <td>email alert, audit log, platinum banner</td>
+    </tr>
+    <tr>
+      <td>Subscription list</td>
+      <td>Instance list (or map of event kind → listeners)</td>
+      <td><code>EventManager</code> composed into the account</td>
+    </tr>
+    <tr>
+      <td>Client</td>
+      <td>Creates both sides and calls subscribe</td>
+      <td>Factory, CLI, tests</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>When to reach for it</h2>
+<ul>
+  <li>A state change should trigger <strong>side effects in other objects</strong>, and you do not know the set in advance.</li>
+  <li>Listeners must <strong>join and leave at runtime</strong> (opt out of SMS, attach a test spy).</li>
+  <li>Adding a new reaction today would mean editing <code>deposit</code> / <code>withdraw</code> (OCP smell).</li>
+</ul>
+
+<h2>Skeleton (composition — preferred here)</h2>
+<pre><code>class EventManager:
+    def __init__(self):
+        self._observers: dict[str, list] = {}
+
+    def subscribe(self, kind: str, observer) -&gt; None:
+        self._observers.setdefault(kind, []).append(observer)
+
+    def unsubscribe(self, kind: str, observer) -&gt; None:
+        listeners = self._observers.get(kind, [])
+        if observer in listeners:
+            listeners.remove(observer)
+
+    def notify(self, kind: str, event) -&gt; None:
+        for observer in list(self._observers.get(kind, [])):
+            observer.update(event)
+</code></pre>
+<p>Iterate a <em>copy</em> of the list so a listener can unsubscribe during notify without skipping the next one. Keep the list on the <em>instance</em> — a class-level <code>_observers = []</code> is shared by every account (<a href="../lessons/0002-class-vs-instance-attributes.html">Day 2</a>).</p>
+
+<h2>Python shapes (pick the smallest that fits)</h2>
+<pre><code># 1. Stateless: a function is an observer
+account.events.subscribe("deposit", lambda e: print(e.message))
+
+# 2. Stateful: a class with update()
+class LowBalanceAlert:
+    def __init__(self, threshold: float):
+        self.threshold = threshold
+    def update(self, event) -&gt; None:
+        if event.account.balance &lt; self.threshold:
+            print("low balance")
+
+# 3. Stdlib you already use: logging
+# Logger = publisher, Handler = observer
+logger.addHandler(logging.StreamHandler())
+</code></pre>
+
+<h2>Not the same as</h2>
+<table>
+  <thead>
+    <tr><th>Pattern</th><th>Intent</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Strategy</td>
+      <td>One collaborator; context <em>needs the result</em> (interest, fee). Observer: many collaborators; publisher does not need a return value.</td>
+    </tr>
+    <tr>
+      <td>Notifier (DIP)</td>
+      <td><em>How</em> to send one message. Observer: <em>who</em> cares that something happened (zero, one, or many).</td>
+    </tr>
+    <tr>
+      <td>Mediator</td>
+      <td>A hub that coordinates <em>two-way</em> talk among components. Observer is one-way: publisher → subscribers.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+Sources: <a href="https://refactoring.guru/design-patterns/observer">Refactoring.Guru — Observer</a>,
+<a href="https://docs.python.org/3/library/logging.html#handler-objects">logging.Handler</a>.
+Lesson: <a href="../lessons/0015-design-pattern-observer.html">Day 15</a>.
+</p>
+
+</body>
+</html>
